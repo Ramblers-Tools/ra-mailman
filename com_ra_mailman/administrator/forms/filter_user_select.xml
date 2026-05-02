@@ -6,7 +6,16 @@
                label="COM_USERS_FILTER_SEARCH_DESC"
                class="js-stools-search-string" />
 
-        
+          <field name="method_id"
+            label="Method"
+            description="Mode of subscription"
+            type="sql"    
+            query="SELECT id AS value, name AS method_id FROM `#__ra_mail_methods`"
+            keyfield="id"
+            header="- Select method -"
+            input_type="list" 
+            class="js-select-submit-on-change"
+            />          
 
     </fields>
 
@@ -16,7 +25,7 @@
                type="list"
                label="COM_RA_MAILMAN_LIST_FULL_ORDERING"
                description="COM_RA_MAILMAN_LIST_FULL_ORDERING_DESC"
-               onchange="this.form.submit();"
+             class="js-select-submit-on-change"
                default="a.id DESC"
         >
             <option value="">JGLOBAL_SORT_BY</option>
@@ -33,9 +42,8 @@
                type="limitbox"
                label="COM_RA_MAILMAN_LIST_LIMIT"
                description="COM_RA_MAILMAN_LIST_LIMIT_DESC"
-               class="input-mini"
+               class="input-mini js-select-submit-on-change"
                default="25"
-               onchange="this.form.submit();"
         />
     </fields>
 </form>

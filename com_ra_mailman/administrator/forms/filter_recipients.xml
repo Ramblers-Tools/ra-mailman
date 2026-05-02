@@ -13,7 +13,7 @@
             keyfield="id"
             header="- Select list -"
             input_type="list" 
-            onchange="this.form.submit();"
+            class="js-select-submit-on-change"
             />
     </fields>
 
@@ -23,7 +23,7 @@
                type="list"
                label="COM_RA_MAILMAN_LIST_FULL_ORDERING"
                description="COM_RA_MAILMAN_LIST_FULL_ORDERING_DESC"
-               onchange="this.form.submit();"
+             class="js-select-submit-on-change"
                default="a.id DESC"
         >
             <option value="">JGLOBAL_SORT_BY</option>
@@ -46,9 +46,8 @@
                type="limitbox"
                label="COM_RA_MAILMAN_LIST_LIMIT"
                description="COM_RA_MAILMAN_LIST_LIMIT_DESC"
-               class="input-mini"
+               class="input-mini js-select-submit-on-change"
                default="25"
-               onchange="this.form.submit();"
         />
 
     </fields>

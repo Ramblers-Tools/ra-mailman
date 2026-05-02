@@ -62,7 +62,7 @@ class OrganisationsController extends AdminController
     }
 
     public function cancel($key = null, $urlVar = null) {
-        $this->setRedirect('index.php?option=com_ra_tools&view=dashboard');
+        $this->setRedirect('index.php?option=com_ra_tools&view=dashboard&layout=mailman');
     }
 
     /**

@@ -51,6 +51,7 @@ class RecipientsModel extends ListModel {
                 'p.preferred_name',
                 'a.email',
                 'a.id',
+                'list_id',
             );
         }
 
@@ -103,7 +104,7 @@ class RecipientsModel extends ListModel {
     protected function getStoreId($id = '') {
         // Compile the store id.
         $id .= ':' . $this->getState('filter.search');
-        $id .= ':' . $this->getState('filter.state');
+        $id .= ':' . $this->getState('filter.list_id');
 
         return parent::getStoreId($id);
     }

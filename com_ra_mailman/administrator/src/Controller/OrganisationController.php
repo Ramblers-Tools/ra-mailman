@@ -9,6 +9,7 @@
  * 21/02/25 CB created
  * 22/02/25 CB
  * 08/04/26 Claude Refactored from com_ra_tools
+ * 20/04/26 drilldown by date
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -16,6 +17,7 @@ namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
+use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use Joomla\CMS\Application\CMSApplication;
@@ -142,37 +144,31 @@ class OrganisationController extends FormController {
         $area = $this->toolsHelper->getValue($sql);
         ToolBarHelper::title('Members in Organisation ' . $area);
         $sql = 'SELECT * from #__ra_profiles ';
-        if (strpos($code,'-') > 0){
-            // this is a group, so match home_group like code%
-            $sql .= 'WHERE home_group like"' . $code . '%"';
+        if (strlen($code) == 2  ){
+            // this is an area, so match home_group like code%
+            $sql .= 'WHERE home_group like"' . $code . '%" ';
         } else {
             // this is an area, so match home_group like code%
-            $sql .= 'WHERE home_group like"' . $code . '%"';
+            $sql .= 'WHERE home_group ="' . $code . '" ';
         }
         $sql .= 'ORDER BY lastName, firstName ';
-
-        $objTable = new ToolsTable;
-        $objTable->add_header("Membership number,First name,Last name,Home group");
+//echo $sql;
+        $table = new ToolsTable;
+        $table->add_header("Mem No,Preferred name,Home group,Join date,Expiry date,Member type,Member term,Status,Volunteer");
         $rows = $this->toolsHelper->getRows($sql);
         foreach ($rows as $row) {
-            $objTable->add_item($row->membershipNumber);
-            $objTable->add_item($row->firstName);
-            $objTable->add_item($row->lastName);
-            if ($row->home_group == '') {
-                $objTable->add_item('');
-            } else {
-                // look up the group name
-                $sql = 'SELECT name FROM #__ra_groups WHERE code="' . $row->home_group . '"';
-                $group_name = $this->toolsHelper->getValue($sql);
-                if ($group_name == '') {
-                    // not found, just show the code
-                    $group_name = $row->home_group;
-                }
-                $objTable->add_item($group_name);
-            }
-            $objTable->generate_line();
+            $table->add_item($row->membershipNumber);
+            $table->add_item($row->preferred_name);
+            $table->add_item($row->home_group);
+            $table->add_item(HTMLHelper::_('date', $row->ramblersJoinDate, 'd M y'));
+            $table->add_item(HTMLHelper::_('date', $row->membershipExpiryDate, 'd M y'));    
+            $table->add_item($row->memberType);
+            $table->add_item($row->memberTerm);
+            $table->add_item($row->memberStatus);
+            $table->add_item($row->volunteer);
+            $table->generate_line();
         }
-        $objTable->generate_table();
+        $table->generate_table();
 
         echo $this->toolsHelper->backButton($this->back);   
     }
@@ -213,27 +209,27 @@ class OrganisationController extends FormController {
         $sql .= 'WHERE code like"' . $code . '%"';
         $sql .= 'ORDER BY name ';
 
-        $objTable = new ToolsTable;
-        $objTable->add_header("Code,Name,Website,CO link,Location");
+        $table = new ToolsTable;
+        $table->add_header("Code,Name,Website,CO link,Location");
         $rows = $this->toolsHelper->getRows($sql);
         foreach ($rows as $row) {
-            $objTable->add_item($row->code);
-            $objTable->add_item($row->name);
+            $table->add_item($row->code);
+            $table->add_item($row->name);
             if ($row->website == '') {
-                $objTable->add_item('');
+                $table->add_item('');
             } else {
-                $objTable->add_item($this->toolsHelper->buildLink($row->website, $row->website, true));
+                $table->add_item($this->toolsHelper->buildLink($row->website, $row->website, true));
             }
             if ($row->co_url == '') {
-                $objTable->add_item('');
+                $table->add_item('');
             } else {
-                $objTable->add_item($this->toolsHelper->buildLink($row->co_url, $row->co_url, true));
+                $table->add_item($this->toolsHelper->buildLink($row->co_url, $row->co_url, true));
             }
             $map_pin = $this->toolsHelper->showLocation($row->latitude, $row->longitude, 'O');
-            $objTable->add_item($map_pin);
-            $objTable->generate_line();
+            $table->add_item($map_pin);
+            $table->generate_line();
         }
-        $objTable->generate_table();
+        $table->generate_table();
 
         echo $this->toolsHelper->backButton($this->back);
     }

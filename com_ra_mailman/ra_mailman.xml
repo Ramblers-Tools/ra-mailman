@@ -8,16 +8,16 @@
 <extension type="component" version="4.0" method="upgrade">
     <name>RA Mailman</name>
     <element>com_ra_mailman</element>
-    <creationDate>16 Feb 2026</creationDate>
+    <creationDate>28 Apr 2026</creationDate>
     <copyright>Copyright (C) 2022. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
     <author>Charlie Bigley</author>
     <authorEmail>webmaster@bigley.me.uk</authorEmail>
     <authorUrl>https://docs.stokeandnewcastleramblers.org.uk</authorUrl>
-    <version>4.6.2</version>
+    <version>4.7.0-2</version>
     <description>Support for Mailing lists</description>
     <namespace path="src">Ramblers\Component\Ra_mailman</namespace>
-    <scriptfile>script.php</scriptfile>
+    <!-- scriptfile>script.php</scriptfile -->
     <files folder="site">
         <folder>forms</folder>
         <folder>languages</folder>

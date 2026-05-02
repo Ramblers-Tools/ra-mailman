@@ -9,6 +9,7 @@
  * 22/02/25 CB delete percentage widths, only show one link to CO
  *             don't allow editing
  * 08/04/26 Claude Refactored from com_ra_tools
+ * 27/04/26 CB refresh members
  */
 defined('_JEXEC') or die;
 
@@ -151,7 +152,14 @@ if (empty($this->items)) {
         if ($member_count > 0) {
             echo '<a href="' . Route::_('index.php?option=com_ra_mailman&task=organisation.showMembers&code=' . $item->code) . '">' . PHP_EOL;
             echo $member_count . '</a>' . PHP_EOL;
-    }
+        }
+        if ($item->mailman_active == 'Y') {
+            // UPDATE `j5_ra_organisations` SET mailman_active = "Y" WHERE code = "NS12";
+            $load = 'index.php?option=com_ra_mailman&task=profiles.load&code=' . $item->code;
+            echo ' <a href="' . Route::_($load) . '" class="ms-2">' . PHP_EOL;
+            echo '<span class="fa fa-sync" aria-hidden="true"></span><span class="sr-only">Load</span>' . PHP_EOL;
+            echo '</a>' . PHP_EOL;
+        }
         echo '</td>' . PHP_EOL;
 
         echo '<td class="d-none d-md-table-cell">' . PHP_EOL;

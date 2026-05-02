@@ -14,7 +14,7 @@
             keyfield="id"
             header="- Select list -"
             input_type="list" 
-            onchange="this.form.submit();"
+            class="js-select-submit-on-change"
             />
          <field name="method_id"
             label="Method"
@@ -24,13 +24,13 @@
             keyfield="id"
             header="- Select method -"
             input_type="list" 
-            onchange="this.form.submit();"
+            class="js-select-submit-on-change"
             />       
         <field name="state"
             type="list"
             label="Status"
             description="Active or Inactive"
-            onchange="this.form.submit();"
+            class="js-select-submit-on-change"
         >
             <option value="">- Select status -</option>
             <option value="0">Inactive</option>
@@ -44,7 +44,7 @@
                type="list"
                label="Order by"
                description="Full ordering"
-               onchange="this.form.submit();"
+             class="js-select-submit-on-change"
                default="l.group_code ASC"
         >
             <option value="">JGLOBAL_SORT_BY</option>
@@ -72,9 +72,8 @@
                type="limitbox"
                label="COM_RA_MAILMAN_LIST_LIMIT"
                description="COM_RA_MAILMAN_LIST_LIMIT_DESC"
-               class="input-mini"
+               class="input-mini js-select-submit-on-change"
                default="25"
-               onchange="this.form.submit();"
         />
 
     </fields>

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version     4.5.8
+ * @version     4.7.0
  * @package     com_ra_mailman
  *
  * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
@@ -13,6 +13,7 @@
  * 29/06/25 CB use UserHelper from Tools, not Mailman; purgeBlockedUsers
  * 11/08/25 CB allow forced send of emails
  * 03/11/25 CB delete bookings, return to reports menu after Purge All
+ * 28/04/26 CB temp fix for updating groups table
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -324,6 +325,12 @@ class SystemController extends FormController
 // Set the query using our newly populated query object and execute it.
         $db->setQuery($query);
         $db->execute();
+    }
+
+    public function fixGroups(){
+        $sql = 'ALTER TABLE `#__ra_groups` CHANGE `website` `website` VARCHAR(250)';
+        echo $sql . '<br>';
+        $this->toolsHelper->executeCommand($sql);
     }
 
     public function purgeAllUsers() {

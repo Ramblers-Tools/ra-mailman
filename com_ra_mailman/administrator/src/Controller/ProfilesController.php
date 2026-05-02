@@ -21,6 +21,8 @@ use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Utilities\ArrayHelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
+//use Ramblers\Component\Ra_mailman\Site\Helpers\LoadHelper;
+use Ramblers\Component\Ra_members\Site\Helper\LoadHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 /**
@@ -30,7 +32,25 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
  */
 class ProfilesController extends AdminController {
 
-    protected $back = 'index.php?option=com_ra_tools&view=dashboard';
+    protected $app;
+    protected $back = 'index.php?option=com_ra_tools&view=dashboard'; 
+    protected $toolsHelper;
+
+    public function __construct(
+        $config = [],
+        MVCFactoryInterface $factory = null,
+        CMSApplication $app = null,
+        Input $input = null
+    ) {
+        parent::__construct($config, $factory, $app, $input);
+
+        $this->toolsHelper = new ToolsHelper;
+        $this->app = Factory::getApplication();
+        $this->back = 'administrator/index.php?option=com_ra_tools&view=dashboard';
+
+        $wa = $this->app->getDocument()->getWebAssetManager();
+        $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
+    }   
 
     public function cancel($key = null, $urlVar = null) {
         $this->setRedirect($this->back);
@@ -55,15 +75,31 @@ class ProfilesController extends AdminController {
         $this->setRedirect($this->back);
     }
 
+    public function load($code = 'NS03') {
+        // temp code for invoking the load process
+        $code = $this->app->input->getAlnum('code');
+        $loadHelper = new LoadHelper;
+        $result = $loadHelper->loadMembers($code);
+        echo 'After loadMembers<br>';
+        foreach ($loadHelper->messages as $message) {
+             echo $message . '<br>';
+        }   
+        die;
+        if ($result === true) {
+            $this->setMessage(Text::_('COM_RA_MAILMAN_LOAD_SUCCESS'), 'success');
+        } else {
+            $this->setMessage(Text::_('COM_RA_MAILMAN_LOAD_FAILURE'), 'error');
+        }
+
+        $this->setRedirect($this->back);
+    }   
+
     public function purgeTestdata() {
         echo 'Not implemented<br>';
 
-        $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
-        $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
-        $objToolsHelper = new ToolsHelper;
-        $objUserHelper = new UserHelper;
+
 //        $objUserHelper->purgeTestData();
-        echo $objToolsHelper->backButton('administrator/' . $this->back);
+        echo $this->toolsHelper->backButton('administrator/' . $this->back);
     }
 
 }

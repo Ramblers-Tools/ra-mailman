@@ -443,10 +443,10 @@ class Com_Ra_mailmanInstallerScript {
             $this->checkColumn('ra_mail_lists', 'description', 'A', 'VARCHAR(512) DEFAULT "" AFTER name; ');
             $sql = 'UPDATE `#__ra_mail_lists` SET record_type=\'\' ';
             $count = $this->executeCommand($sql);
-            $this->checkColumn('ra_mail_shots', 'record_type', 'A', 'VARCHAR(1) DEFAULT "M" AFTER id; ');
-            $this->checkColumn('ra_mail_shots', 'mail_list_id', 'U', 'INT NULL; ');
-            $this->checkColumn('ra_mail_shots', 'event_id', 'A', 'INT NULL AFTER mail_list_id; ');           
-            $sql = 'UPDATE `#__ra_mail_shots` SET record_type=\'M\' ';
+            $this->checkColumn('ra_mail_shots', '`record_type`', 'A', 'VARCHAR(1) DEFAULT "M" AFTER id; ');
+            $this->checkColumn('ra_mail_shots', '`mail_list_id`', 'U', 'INT NULL; ');
+            $this->checkColumn('ra_mail_shots', '`event_id`', 'A', 'INT NULL AFTER mail_list_id; ');           
+            $sql = 'UPDATE `#__ra_mail_shots` SET `record_type`=\'M\' ';
             $count = $this->executeCommand($sql);
         }
         if (version_compare($this->current_version, '4.6.0', 'le')) {

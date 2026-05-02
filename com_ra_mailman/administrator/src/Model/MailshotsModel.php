@@ -50,6 +50,8 @@ class MailshotsModel extends ListModel {
                 'a.title',
                 'mail_list', 'mail_list.name',
                 'modified', 'a.modified',
+                'status',
+                'list_id',
             );
         }
 
@@ -102,7 +104,8 @@ class MailshotsModel extends ListModel {
     protected function getStoreId($id = '') {
         // Compile the store id.
         $id .= ':' . $this->getState('filter.search');
-        $id .= ':' . $this->getState('filter.state');
+        $id .= ':' . $this->getState('filter.status');
+        $id .= ':' . $this->getState('filter.list_id');
 
         return parent::getStoreId($id);
     }

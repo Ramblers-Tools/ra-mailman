@@ -53,6 +53,9 @@ class SubscriptionsModel extends ListModel {
                 'a.state',
                 'a.modified',
                 'a.expiry_date',
+                'list_id',
+                'method_id',
+                'state',
             );
         }
 
@@ -105,6 +108,8 @@ class SubscriptionsModel extends ListModel {
     protected function getStoreId($id = '') {
         // Compile the store id.
         $id .= ':' . $this->getState('filter.search');
+        $id .= ':' . $this->getState('filter.list_id');
+        $id .= ':' . $this->getState('filter.method_id');
         $id .= ':' . $this->getState('filter.state');
 
         return parent::getStoreId($id);

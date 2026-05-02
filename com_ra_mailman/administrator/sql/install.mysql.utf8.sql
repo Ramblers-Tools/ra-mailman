@@ -6,6 +6,7 @@
 # 16/06/25 CB added table ra_emails
 # 20/10/25 CB added mail_lists / emails_outstanding
 # 30/03/26 CB mailshots: add record_type and event_id
+# 29/04/26 CB add mail_lists / description
 CREATE TABLE IF NOT EXISTS `#__ra_emails` (
     `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
     `sub_system` VARCHAR(10)  NULL  DEFAULT "",
@@ -77,6 +78,7 @@ CREATE TABLE IF NOT EXISTS `#__ra_mail_lists` (
 	`id` INT NOT NULL AUTO_INCREMENT,
 	`state` INT NOT NULL,
 	`name` VARCHAR(255) NOT NULL,
+        `description` VARCHAR(512) DEFAULT "",
 	`group_code` VARCHAR(4) NOT NULL,
         `group_primary` VARCHAR(4) DEFAULT NULL, 
 	`owner_id` INT NOT NULL,

@@ -54,16 +54,16 @@ if ($this->user_id == 1) {
 }
 
 $reports = [
-    'Recent Mailshots' => 'administrator/index.php?option=com_ra_mailman&task=reports.recentMailshots',
-    'Email Proportion' => 'administrator/index.php?option=com_ra_mailman&task=reports.emailProportion',
-    'Subscriptions summary' => 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary',
-    'Analyse membership enrolment' => 'administrator/index.php?option=com_ra_mailman&task=reports.membershipEnrolment',
-    'Subscriptions due' => 'administrator/index.php?option=com_ra_mailman&task=reports.showDue',
-    'Subscriptions created' => 'administrator/index.php?option=com_ra_mailman&task=reports.showCreated',
-    'Subscriptions by Status' => 'administrator/index.php?option=com_ra_mailman&task=reports.showSubscriptionsByStatus',
+    'Members by Group' => 'administrator/index.php?option=com_ra_members&task=reports.membersByGroup',
+    'Membership statistics' => 'administrator/index.php?option=com_ra_members&task=reports.memberStatistics',
     'Mailshots by Month' => 'administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth',
+    'Recent Mailshots' => 'administrator/index.php?option=com_ra_mailman&task=reports.recentMailshots',
+    'Subscriptions summary' => 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary',
+    'Members enrolled, by month' => 'administrator/index.php?option=com_ra_members&task=reports.analyseEnrolment',
+    'Members lapsing, by month' => 'administrator/index.php?option=com_ra_members&task=reports.analyseLapsing',
+    
     'Preview Email' => 'administrator/index.php?option=com_ra_mailman&task=reports.emailPreview',
-//    'Check database for invalid records' => 'administrator/index.php?option=com_ra_mailman&task=reports.checkDatabase',
+   
 //    'Duplicate Recipients' => 'administrator/index.php?option=com_ra_mailman&task=reports.duplicateRecipients',
 ];
 //$reports['Future bookable Events'] = 'administrator/index.php?option=com_ra_mailman&task=reports.bookableEvents';
@@ -78,6 +78,9 @@ $reports = [
             foreach ($admin_reports as $caption => $task) {
                 echo '<li>' . $this->toolsHelper->buildLink($task, $caption) . '</li>';
             }
+         foreach ($reports as $caption => $task) {
+            echo '<li>' . $this->toolsHelper->buildLink($task , $caption) . '</li>';
+        }           
             echo '</ul>';
         }
         echo '<h4>Area reports</h4>';

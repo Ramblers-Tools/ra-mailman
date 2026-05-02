@@ -13,7 +13,7 @@
             type="list"
             label="Type"
             default=""
-            onchange="this.form.submit();"
+            class="js-select-submit-on-change"
         >
             <option value="">- All types -</option>
             <option value="A">Areas</option>
@@ -27,7 +27,7 @@
             key_field="value"
             value_field="text"
             header="- All clusters -"
-            onchange="this.form.submit();"
+            class="js-select-submit-on-change"
         />
     </fields>
 
@@ -36,8 +36,8 @@
                     name="fullordering"
                     type="list"
                     label="JGLOBAL_SORT_BY"
-                    default="g.name ASC"
-                    onchange="this.form.submit();"
+                    default="a.code ASC"
+                    class="js-select-submit-on-change"
                     >
                     <option value="">JGLOBAL_SORT_BY</option>
                     <option value="a.code ASC">Code ascending</option>
@@ -58,7 +58,7 @@
                     type="limitbox"
                     label="JGLOBAL_LIST_LIMIT"
                     default="25"
-                    onchange="this.form.submit();"
+                    class="js-select-submit-on-change"
             />
     </fields>
 </form>

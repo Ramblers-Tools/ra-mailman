@@ -140,10 +140,11 @@ protected $app;
         $query->where('a.state = 1');
         // For non full version, only show lists that the current User is allowed to use
         if (($group !== 'N') AND ($toolsHelper->isSuperuser() === false)) {
-            $user = $this->app->getSession()->get('user');
-            $query->leftJoin(' #__ra_mail_subscriptions AS s ON s.list_id = a.id ');            
-            $query->where('s.record_type>1');
-            $query->where('s.user_id=' . $user->id);
+             $query->where('a.group_code=' . $this->_db->quote($group));
+ //           $user = $this->app->getSession()->get('user');
+ //           $query->leftJoin(' #__ra_mail_subscriptions AS s ON s.list_id = a.id ');            
+ //           $query->where('s.record_type>1');
+ //           $query->where('s.user_id=' . $user->id);
         }
         // Search for this word
         $searchWord = $this->getState('filter.search');

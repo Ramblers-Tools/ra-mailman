@@ -32,15 +32,21 @@ HTMLHelper::_('bootstrap.tooltip');
     <div class="row-fluid">
         <div class="col-md-12 form-horizontal">
             <fieldset class="adminform">
-                <?php echo $this->form->renderField('nation_id'); ?>
-                <?php echo $this->form->renderField('code'); ?>
-                <?php echo $this->form->renderField('name'); ?>
-                <?php echo $this->form->renderField('details'); ?>
-                <?php echo $this->form->renderField('website'); ?>
-                <?php echo $this->form->renderField('co_url'); ?>
-                <?php echo $this->form->renderField('cluster'); ?>
-                <?php echo $this->form->renderField('latitude'); ?>
-                <?php echo $this->form->renderField('longitude'); ?>
+                <?php 
+                echo $this->form->renderField('nation_id'); 
+                echo $this->form->renderField('code'); 
+                echo $this->form->renderField('name');
+                echo $this->form->renderField('details');
+                echo $this->form->renderField('mailman_active');
+                echo $this->form->renderField('website');
+                echo $this->form->renderField('co_url');
+                if ($this->item->record_type === 'A') {
+                    echo $this->form->renderField('cluster');
+                }
+                echo $this->form->renderField('latitude'); 
+                echo $this->form->renderField('longitude');
+                
+                ?>
             </fieldset>
         </div>
     </div>

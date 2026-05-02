@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version    CVS: 4.7.0
+ * @version     4.7.0
  * @component   com_ra_mailman
  *
  * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
@@ -10,6 +10,7 @@
  * 21/11/23 CB correct spelling of search_fields
  * 22/02/25 CB includ cluster in field list
  * 08/04/26 Claude Refactored from com_ra_tools
+ * 21/04/26 GPT Corrected issue where filter fields collapsed after search
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -41,8 +42,22 @@ class OrganisationsModel extends ListModel {
                 'n.name',
                 'a.email_header',
                 'a.logo',
+                'a.website',
+                'a.co_url',
+                'record_type',
+                'cluster',
             );
-            $this->search_fields = $config['filter_fields'];
+
+            $this->search_fields = array(
+                'a.code',
+                'a.name',
+                'a.cluster',
+                'n.name',
+                'a.email_header',
+                'a.logo',
+                'a.website',
+                'a.co_url',
+            );
         }
         parent::__construct($config);
     }

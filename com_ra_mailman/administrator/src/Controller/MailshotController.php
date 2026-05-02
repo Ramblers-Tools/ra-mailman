@@ -365,8 +365,10 @@ class MailshotController extends FormController {
         if ($user_id == 0) {
             Factory::getApplication()->enqueueMessage('You must log in to access this function', 'error');
         } else {
+            // Ignore any limit on the numbers to be send on-line
+            
             $mailHelper = new Mailhelper;
-            $mailHelper->send($mailshot_id, $total);
+            $mailHelper->sendEmails($mailshot_id);
         }
 
         $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');

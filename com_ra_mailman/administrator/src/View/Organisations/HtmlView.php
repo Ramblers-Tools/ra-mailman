@@ -104,7 +104,7 @@ class HtmlView extends BaseHtmlView {
         // Get the toolbar object instance
         $toolbar = Toolbar::getInstance('toolbar');
 
-        ToolbarHelper::title('Ramblers Areas');
+        ToolbarHelper::title('Ramblers Organisations');
         $this->canDo = ContentHelper::getActions('com_ra_mailman');
 
         if ($this->canDo->get('core.create')) {

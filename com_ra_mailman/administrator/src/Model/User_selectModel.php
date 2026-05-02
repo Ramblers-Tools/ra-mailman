@@ -50,8 +50,14 @@ class User_selectModel extends ListModel {
                 'p.home_group',
                 'p.preferred_name',
                 'u.email',
+                'method_id',
             );
-            $this->search_columns = $config['filter_fields'];
+
+            $this->search_columns = array(
+                'p.home_group',
+                'p.preferred_name',
+                'u.email',
+            );
         }
 
         parent::__construct($config);
@@ -83,7 +89,7 @@ class User_selectModel extends ListModel {
 // Create a sub query to see if users are already subscribed to the list in question
         $sub_query = $this->_db->getQuery(true);
         $sub_query->select('s.id, s.record_type, s.state');
-        $sub_query->select('s.list_id, s.user_id');
+        $sub_query->select('s.list_id, s.user_id, s.method_id');
         $sub_query->select('m.name as `Method`, ma.name AS `Access`');
         $sub_query->from('#__ra_mail_subscriptions AS s');
         $sub_query->leftJoin('#__ra_mail_methods AS m ON m.id =  s.method_id');
@@ -118,6 +124,13 @@ class User_selectModel extends ListModel {
         $query->where($this->_db->qn('u.block') . '= 0');
         // Filter by published state
         $published = $this->getState('filter.state');
+
+        // Filter by subscription method
+        $methodId = $this->getState('filter.method_id');
+
+        if (is_numeric($methodId)) {
+            $query->where('subs.method_id = ' . (int) $methodId);
+        }
 
         // Filter by search term
         $search = $this->getState('filter.search');
@@ -165,6 +178,7 @@ class User_selectModel extends ListModel {
         // Compile the store id.
         $id .= ':' . $this->getState('filter.search');
         $id .= ':' . $this->getState('filter.state');
+        $id .= ':' . $this->getState('filter.method_id');
 
         return parent::getStoreId($id);
     }

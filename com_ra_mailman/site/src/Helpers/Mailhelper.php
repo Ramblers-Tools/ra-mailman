@@ -127,6 +127,23 @@ class Mailhelper {
         $app = Factory::getApplication();
         $app->setUserState('com_ra_mailman.reports.callback', 'dashboard');
         $canDo = ContentHelper::getActions('com_ra_tools');
+        $super = $this->toolsHelper->isSuperUser();
+        if ($super) {
+            $text = '<h3>System Tools</h3>';
+            $text .= '<ul>';
+//            $this->user = $this->getCurrentUser();
+//            if ($this->user->id == 1) { 
+              $text .= '<li><a href="index.php?option=com_ra_tools&view=clusters" target="_self">Clusters</a></li>';
+//            }
+            $text .= '<li><a href="index.php?option=com_ra_members&view=organisations" target="_self">Organisations</a></li>';
+            $text .= '<li><a href="index.php?option=com_ra_members&view=members" target="_self">Members</a></li>';
+            $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=profiles" target="_self">MailMan Users</a></li>';
+            $versions = $this->toolsHelper->getVersions('com_ra_mailman');
+            $text .= '<li><a href="index.php?option=com_config&view=component&component=com_ra_mailman" target="_self">';
+            $text .= "Configure system defaults (version " . $versions->component . ")</a></li>" . PHP_EOL;
+            $text .= '<li><a href="index.php?option=com_ra_mailman&task=profiles.load" target="_self">Test data load</a></li>';
+            $text .= '</ul>';
+        }   
         // find current scope
         $code = $this->getDefaultGroup();
 
@@ -139,22 +156,18 @@ class Mailhelper {
         } else {
             $subheading = 'All records';
         }   
-        $text = '<h3>Mail Manager</h3>';
+        $text .= '<h3>Mail Manager</h3>';
         $text .= '<h4>Scope '  . $subheading . '</h4>';
         $text .= '<ul>';
-        $super = $this->toolsHelper->isSuperUser();
-        if ($super) {
-            $text .= '<li><a href="index.php?option=com_ra_mailman&view=organisations" target="_self">Organisations</a></li>';
-        }   
+        
+
         $text .= '<li><a href="index.php?option=com_ra_mailman&view=mail_lsts" target="_self">Mailing lists</a></li>';
         $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=mailshots" target="_self">Mailshots</a></li>';
-         $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=reports" target="_self">Mailman Reports</a></li>';
-        
-        $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=subscriptions" target="_self">Subscriptions</a></li>';
+        $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=reports" target="_self">Mailman Reports</a></li>';
         
         if ($canDo->get('core.create')) {
             $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=subscriptions" target="_self">Subscriptions</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=profiles" target="_self">MailMan Users</a></li>';
+           
         } 
         $area_code = substr($code, 0, 2);
         $area_id = $this->toolsHelper->getValue('SELECT id FROM #__ra_organisations WHERE code="' . $area_code . '"');
@@ -164,9 +177,7 @@ class Mailhelper {
         }   
         $text .= '<li><a href="index.php?option=com_ra_mailman&view=organisation&layout=edit&callback=dashboard&id=' . (!empty($item->id) ? $item->id : '') . ' " target="_self">Configure ' . $code  . '</a></li>'; 
          if ($this->toolsHelper->isSuperuser()){
-            $versions = $this->toolsHelper->getVersions('com_ra_mailman');
-            $text .= '<li><a href="index.php?option=com_config&view=component&component=com_ra_mailman" target="_self">';
-            $text .= "Configure com_ra_mailman (version " . $versions->component . ")</a></li>" . PHP_EOL;
+
 //            $text .= '<li>(DB version is ' . $versions->db_version . ')</li>';
         }
         $text .= '</ul>' . PHP_EOL;
@@ -265,8 +276,6 @@ class Mailhelper {
                 } else {
                     $mailshot_body .= 'File ' . $file . ' not found<br>';
                     $this->message .= $working_file . ' not found';
-                    //                   echo $mailshot_body;
-                    //                   die($working_file . ' not found');
                 }
             }
         }
@@ -931,7 +940,6 @@ class Mailhelper {
         $params = ComponentHelper::getParams('com_ra_mailman');
         $max_emails = $params->get('max_emails', 100);
         $max_online_send = $params->get('max_online_send', 100);
-
         if ($total > $max_online_send) {
 //            Find the list id
             $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
@@ -944,7 +952,7 @@ class Mailhelper {
         }
 
         $this->sendEmails($mailshot_id);
-
+//die ('After helper sendEmails ' . count($this->messages) . ' messages' );
         foreach ($this->messages as $message) {
             Factory::getApplication()->enqueueMessage($message, 'info');
         }
@@ -1000,7 +1008,12 @@ class Mailhelper {
     }
 
     public function sendEmails($mailshot_id) { // before version 4.5.1, this was function send
-//      Find level of email logging
+//    This bypasses the check for on-line maximum and is only invoked from send() 
+//    if the total number of emails to be sent is less than the on-line maximum
+//
+//   It is also invoked from the batch job, and from task mailshot,send, which in turn is onvoked by ForceSend
+
+    //      Find level of email logging
         $params = ComponentHelper::getParams('com_ra_tools');
         $this->email_log_level = $params->get('email_log_level', '0');
         // Find the reference point for the un-subscribe link

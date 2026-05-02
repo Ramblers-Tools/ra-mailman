@@ -72,8 +72,8 @@ class ReportsController extends FormController {
             $sql .= 'WHERE code="' . $code . '"';
             $item = $this->toolsHelper->getItem($sql);  
             $this->subheading =  $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');    
-    }              
-}
+        }              
+    }
 
     public function analyseListMembership(){
         ToolBarHelper::title($this->prefix . 'Analysis of members by group');
@@ -88,8 +88,8 @@ class ReportsController extends FormController {
         $lists = $this->toolsHelper->getRows($sql);
         foreach($lists as $list){
             echo '<h4>' . $list->group->code . ': ' . $list->name . '</h4>';
-            $objTable = new ToolsTable();
-            $objTable->add_header($header);    
+            $table = new ToolsTable();
+            $table->add_header($header);    
                         
             $sql = 'SELECT l.state, p.home_group, COUNT(l.id) As `Cnt`'; 
             $sql .= 'FROM `j5_ra_mail_lists` AS l ';
@@ -99,12 +99,12 @@ class ReportsController extends FormController {
             $sql .= ' GROUP BY l.state, l.`group_code`,p.home_group'; 
             $rows = $this->toolsHelper->getRows($sql);  
             foreach ($rows as $row){
-                $objTable->add_item($row->state);
-                $objTable->add_item($row->home_group);
-                $objTable->add_item($row->Cnt);   
-                $objTable->generate_line();  
+                $table->add_item($row->state);
+                $table->add_item($row->home_group);
+                $table->add_item($row->Cnt);   
+                $table->generate_line();  
             }
-            $objTable->generate_table();
+            $table->generate_table();
         }
         echo $this->toolsHelper->backButton($this->back);
     }
@@ -112,8 +112,8 @@ class ReportsController extends FormController {
     public function blockedUsers() {
         ToolBarHelper::title($this->prefix . 'Blocked users');
         echo $this->breadcrumbs;
-        $objTable = new ToolsTable();
-        $objTable->add_header("Name,email,Lists,Audit,ID");
+        $table = new ToolsTable();
+        $table->add_header("Name,email,Lists,Audit,ID");
 
         $sql = "SELECT id, name as 'User', email  ";
         $sql .= 'FROM `#__users` ';
@@ -122,26 +122,67 @@ class ReportsController extends FormController {
         $target = 'administrator/index.php?option=com_ra_mailman&task=system.purgeUser&id=';
         $rows = $this->toolsHelper->getRows($sql);
         foreach ($rows as $row) {
-            $objTable->add_item($row->User);
-            $objTable->add_item($row->email);
+            $table->add_item($row->User);
+            $table->add_item($row->email);
             $count = $this->countLists($row->id);
-            $objTable->add_item($count);
+            $table->add_item($count);
             $count = $this->countAudit($row->id);
-            $objTable->add_item($count);
+            $table->add_item($count);
             if ($this->toolsHelper->isSuperuser()) {
-                $objTable->add_item($this->toolsHelper->buildButton($target . $row->id, 'Purge', false, 'orange'));
+                $table->add_item($this->toolsHelper->buildButton($target . $row->id, 'Purge', false, 'orange'));
             } else {
-                $objTable->add_item($row->id);
+                $table->add_item($row->id);
             }
-            $objTable->generate_line();
+            $table->generate_line();
         }
-        $objTable->generate_table();
+        $table->generate_table();
         echo count($rows) . ' rows<br>';
         if ((count($rows) > 1) AND ($this->toolsHelper->isSuperuser())) {
             $target = 'administrator/index.php?option=com_ra_mailman&task=system.purgeAllUsers';
             echo $this->toolsHelper->buildButton($target, 'Purge All', false, 'red');
         }
 
+        echo $this->toolsHelper->backButton($this->back);
+    }
+
+       public function bookableEvents() {
+        ToolBarHelper::title('Future bookable events' . $year);
+        echo $this->breadcrumbs;
+        $sql = 'SELECT COUNT(id) FROM `#__ra_events` ';
+        $sql .= 'WHERE bookable=1 AND DATEDIFF(event_date, CURRENT_DATE)>0 ';
+        $sql .= 'AND api_site_id IS NULL ';
+        $count = $this->toolsHelper->getValue($sql);
+        if ($count = 0) {
+            echo 'No Events found<br>';
+        } else {
+            //        echo '<h4>Events that have been imported</h4>';
+            $sql = 'SELECT e.id, e.event_date,e.title AS `event`,  ';
+            $sql .= 'e.num_bookings, e.max_bookings, e.location, c.name, t.description ';
+            $sql .= 'FROM `#__ra_events` AS e ';
+            $sql .= 'INNER JOIN #__ra_event_types as t ON t.id = e.event_type_id ';
+            $sql .= 'LEFT JOIN #__contact_details AS c ON c.id = e.contact_id ';
+            $sql .= 'WHERE e.bookable=1 ';
+            $sql .= 'AND e.api_site_id IS NULL ';
+            $sql .= 'AND DATEDIFF(e.event_date, CURRENT_DATE) > 0 ';
+            $sql .= 'ORDER BY e.event_date ASC';
+            $rows = $this->toolsHelper->getRows($sql);
+            $objTable = new ToolsTable();
+
+            $objTable->add_header("Event date,Type,Title,Location,Bookings,Contact");
+            foreach ($rows as $row) {
+                $objTable->add_item(HTMLHelper::_('date', $row->event_date, 'd-M-y'));
+                $objTable->add_item($row->description);
+                $objTable->add_item($row->event);
+                $objTable->add_item($row->location);
+                $objTable->add_item($row->num_bookings . '/' . $row->max_bookings);
+                $objTable->add_item($row->name);
+
+                $objTable->generate_line();
+            }
+            $objTable->generate_table();
+        }
+        echo $count . ' Events<br>';
+        $target = "administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth";
         echo $this->toolsHelper->backButton($this->back);
     }
 
@@ -160,7 +201,7 @@ class ReportsController extends FormController {
         if ($code == ''){
             $code = $this->mailHelper->getDefaultGroup();
         }
-        $sql = $operator . '(' . $field_name;
+        $sql = $operator . ' (' . $field_name;
         if ($this->scope == 'A'){ 
             $area_code = substr($code,0,2);
             $sql .=  ' LIKE "' . $area_code . '%") ';
@@ -255,17 +296,17 @@ class ReportsController extends FormController {
             $sql .= "WHERE u.id IS NULL ";
             $sql .= "order by p.id";
             $rows = $this->toolsHelper->getRows($sql);
-            $objTable = new ToolsTable();
-            $objTable->add_header("ID,Group,Preferred Name,Created");
+            $table = new ToolsTable();
+            $table->add_header("ID,Group,Preferred Name,Created");
 
             foreach ($rows as $row) {
-                $objTable->add_item($row->id);
-                $objTable->add_item($row->home_group);
-                $objTable->add_item($row->preferred_name);
-                $objTable->add_item($row->created);
-                $objTable->generate_line();
+                $table->add_item($row->id);
+                $table->add_item($row->home_group);
+                $table->add_item($row->preferred_name);
+                $table->add_item($row->created);
+                $table->generate_line();
             }
-            $objTable->generate_table();
+            $table->generate_table();
             if ($this->toolsHelper->isSuperuser()) {
                 $target = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles&mode=P';
                 echo $this->toolsHelper->buildButton($target, 'Purge All', false, 'red');
@@ -291,13 +332,13 @@ class ReportsController extends FormController {
             $objTable->add_header("ID,Name,Email,Registered,Last Visit");
 
             foreach ($rows as $row) {
-                $objTable->add_item($row->id);
-                $objTable->add_item($row->name);
-                $objTable->add_item($row->email);
-                $objTable->add_item($row->created);
-                $objTable->generate_line();
+                $table->add_item($row->id);
+                $table->add_item($row->name);
+                $table->add_item($row->email);
+                $table->add_item($row->created);
+                $table->generate_line();
             }
-            $objTable->generate_table();
+            $table->generate_table();
             if ($this->toolsHelper->isSuperuser()) {
                 $target = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles&mode=P';
                 echo $this->toolsHelper->buildButton($target, 'Purge All', false, 'red') . '<br>';
@@ -316,15 +357,15 @@ class ReportsController extends FormController {
             $sql .= "FROM #__ra_profiles AS p ";
             $sql .= "WHERE p.id=0 ";
             $sql .= "ORDER BY p.id";
-            $objTable = new ToolsTable();
-            $objTable->add_header("ID,Group,Name");
+            $table = new ToolsTable();
+            $table->add_header("ID,Group,Name");
             $rows = $this->toolsHelper->getRows($sql);
             foreach ($rows as $row) {
-                $objTable->add_item($row->id);
-                $objTable->add_item($row->home_group);
-                $objTable->add_item($row->preferred_name);
+                $table->add_item($row->id);
+                $table->add_item($row->home_group);
+                $table->add_item($row->preferred_name);
             }
-            $objTable->generate_table();
+            $table->generate_table();
         }
 
         //Find any Users without a Preferred Name
@@ -340,17 +381,17 @@ class ReportsController extends FormController {
         $rows = $this->toolsHelper->getRows($sql);
         if ($rows) {
             echo '<h4>Users without a Preferred Name</h4>';
-            $objTable = new ToolsTable();
-            $objTable->add_header("ID,Name,email,Registered,Last visit");
+            $table = new ToolsTable();
+            $table->add_header("ID,Name,email,Registered,Last visit");
             foreach ($rows as $row) {
-                $objTable->add_item($row->id);
-                $objTable->add_item($row->name);
-                $objTable->add_item($row->email);
-                $objTable->add_item($row->registerDate);
-                $objTable->add_item($row->lastvisitDate);
-                $objTable->generate_line();
+                $table->add_item($row->id);
+                $table->add_item($row->name);
+                $table->add_item($row->email);
+                $table->add_item($row->registerDate);
+                $table->add_item($row->lastvisitDate);
+                $table->generate_line();
             }
-            $objTable->generate_table();
+            $table->generate_table();
         } else {
             echo 'All profile records have a value for Preferred Name<br>';
         }
@@ -369,8 +410,8 @@ class ReportsController extends FormController {
             echo 'No duplicate names found for Profile records<br>';
         } else {
             echo '<h4>Profile records with duplicated names</h4>';
-            $objTable = new ToolsTable;
-            $objTable->add_header('id,Group,Preferred name,Real name,Email');
+            $table = new ToolsTable();
+            $table->add_header('id,Group,Preferred name,Real name,Email');
             foreach ($rows as $row) {
 
                 $sql_user = 'SELECT p.id, u.name, u.email ';
@@ -380,15 +421,15 @@ class ReportsController extends FormController {
 //               echo "$sql_user<br>";
                 $users = $this->toolsHelper->getRows($sql_user);
                 foreach ($users as $user) {
-                    $objTable->add_item($user->id);
-                    $objTable->add_item($row->home_group);
-                    $objTable->add_item($row->preferred_name);
-                    $objTable->add_item($user->name);
-                    $objTable->add_item($user->email);
-                    $objTable->generate_line();
+                    $table->add_item($user->id);
+                    $table->add_item($row->home_group);
+                    $table->add_item($row->preferred_name);
+                    $table->add_item($user->name);
+                    $table->add_item($user->email);
+                    $table->generate_line();
                 }
             }
-            $objTable->generate_table();
+            $table->generate_table();
             echo '<p style="color:red">Please edit the User records and change the name</p>';
         }
 
@@ -404,17 +445,17 @@ class ReportsController extends FormController {
         $rows = $this->toolsHelper->getRows($sql);
         if ($rows) {
             echo '<h4>Users receiving system emails</h4>';
-            $objTable = new ToolsTable();
-            $objTable->add_header("ID,Name,email,Registered,Last visit");
+            $table = new ToolsTable();
+            $table->add_header("ID,Name,email,Registered,Last visit");
             foreach ($rows as $row) {
-                $objTable->add_item($row->id);
-                $objTable->add_item($row->name);
-                $objTable->add_item($row->email);
-                $objTable->add_item($row->registerDate);
-                $objTable->add_item($row->lastvisitDate);
-                $objTable->generate_line();
+                $table->add_item($row->id);
+                $table->add_item($row->name);
+                $table->add_item($row->email);
+                $table->add_item($row->registerDate);
+                $table->add_item($row->lastvisitDate);
+                $table->generate_line();
             }
-            $objTable->generate_table();
+            $table->generate_table();
         } else {
             echo 'No Users can receive system emails<br>';
         }
@@ -685,35 +726,6 @@ class ReportsController extends FormController {
         echo $this->toolsHelper->backButton($this->back);
     }
 
-    public function emailProportion(){
-    echo $this->breadcrumbs;
-    echo '<h4>Scope '  . $this->subheading . '</h4>';     
-    $table = new ToolsTable();
-    $headers = 'Group,Total members,With email,%';
-    $table->add_header($headers);
-    $sql = 'SELECT home_group, COUNT(id) as cnt FROM #__ra_profiles ';
-    $sql .= $this->buildCriterion('WHERE','home_group');
-    $sql .= ' GROUP BY home_group ';
-    $sql .= 'ORDER BY home_group';
-    $areas = $this->toolsHelper->getRows($sql);
-    foreach ($areas as $area){
-        $table->add_item($area->home_group);
-        $table->add_item($area->cnt);
-        $tot = $area->cnt;
-        $sql = 'SELECT COUNT(p.id) as cnt FROM #__ra_profiles AS p ';
-        $sql .= 'INNER JOIN #__users AS u ON u.id = p.id ';
-        $sql .= 'WHERE u.email IS NOT NULL ';
-        $sql .= 'AND p.home_group="' . $area->home_group . '"';   
-        
-        $with = $this->toolsHelper->getValue($sql);
-        $table->add_item($with);
-        $percent = $with * 100 / $tot;
-        $table->add_item(round($percent));
-            $table->generate_line();
-        }
-        $table->generate_table();
-        echo $this->toolsHelper->backButton($this->back);
-    }
 
     public function resetUsers() {
         ToolBarHelper::title($this->prefix . 'Users awaiting password reset');
@@ -744,7 +756,7 @@ class ReportsController extends FormController {
     }
 
     public function recentMailshots() {
-        ToolBarHelper::title($this->prefix . 'Resent Mailshots');
+        ToolBarHelper::title('Recent Mailshots');
         echo $this->breadcrumbs;
         $mailHelper = new MailHelper;
         echo '<h4>Scope '  . $this->subheading . '</h4>';    
@@ -793,7 +805,9 @@ class ReportsController extends FormController {
 
             if ($actually_outstanding > 0) {
                 if (is_null($last_mailshot->date_sent)) {
-                    $link = $this->toolsHelper->buildButton($target . $row->id, 'Force Send');
+                    $target = 'administrator/index.php?option=com_ra_mailman&task=mailshot.send&mailshot_id=';
+                    $target .= $row->id . '&total=' . $actually_outstanding;
+                    $link = $this->toolsHelper->buildButton($target, 'Force Send');
                     $objTable->add_item($link);
                 }
             }
@@ -808,59 +822,6 @@ class ReportsController extends FormController {
         echo $this->toolsHelper->backButton($this->back);
     }
 
-    public function bookableEvents() {
-        ToolBarHelper::title('Future bookable events' . $year);
-        echo $this->breadcrumbs;
-        $sql = 'SELECT COUNT(id) FROM `#__ra_events` ';
-        $sql .= 'WHERE bookable=1 AND DATEDIFF(event_date, CURRENT_DATE)>0 ';
-        $sql .= 'AND api_site_id IS NULL ';
-        $count = $this->toolsHelper->getValue($sql);
-        if ($count = 0) {
-            echo 'No Events found<br>';
-        } else {
-            //        echo '<h4>Events that have been imported</h4>';
-            $sql = 'SELECT e.id, e.event_date,e.title AS `event`,  ';
-            $sql .= 'e.num_bookings, e.max_bookings, e.location, c.name, t.description ';
-            $sql .= 'FROM `#__ra_events` AS e ';
-            $sql .= 'INNER JOIN #__ra_event_types as t ON t.id = e.event_type_id ';
-            $sql .= 'LEFT JOIN #__contact_details AS c ON c.id = e.contact_id ';
-            $sql .= 'WHERE e.bookable=1 ';
-            $sql .= 'AND e.api_site_id IS NULL ';
-            $sql .= 'AND DATEDIFF(e.event_date, CURRENT_DATE) > 0 ';
-            $sql .= 'ORDER BY e.event_date ASC';
-            $rows = $this->toolsHelper->getRows($sql);
-            $objTable = new ToolsTable();
-
-            $objTable->add_header("Event date,Type,Title,Location,Bookings,Contact");
-            foreach ($rows as $row) {
-                $objTable->add_item(HTMLHelper::_('date', $row->event_date, 'd-M-y'));
-                $objTable->add_item($row->description);
-                $objTable->add_item($row->event);
-                $objTable->add_item($row->location);
-                $objTable->add_item($row->num_bookings . '/' . $row->max_bookings);
-                $objTable->add_item($row->name);
-
-                $objTable->generate_line();
-            }
-            $objTable->generate_table();
-        }
-        echo $count . ' Events<br>';
-        $target = "administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth";
-        echo $this->toolsHelper->backButton($this->back);
-    }
-
-    public function membershipEnrolment(){
-        echo $this->breadcrumbs; // . $this->breadcrumbsExtra('
-        echo '<h4>Scope '  . $this->subheading . '</h4>';
-        $field = 'ramblersJoinDate';
-        $table = ' #__ra_profiles';
-        //$criteria = $this->buildCriterion('WHERE','home_group');
-        echo $this->buildCriterion('WHERE','home_group');
-        $title = 'Enrolments by month';
-        $link = 'administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsForMonth';
-        $back = 'administrator/index.php?option=com_ra_mailman&view=reports';
-        $this->toolsHelper->showMonthMatrix($field, $table, $criteria, $title, $link, $back);
-    }
 
     function showCreated() {
 // Shows a matrix of the number of subscriptions created from Corporate feed
@@ -1264,10 +1225,12 @@ class ReportsController extends FormController {
             $objTable->generate_line();
         }
         $objTable->generate_table();
+        echo count($rows) . ' Mailshots for this month<br>';
         $target = "administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth";
         echo $this->toolsHelper->backButton($target);
     }
 
+   
     public function showSubscriptionsByStatus() {
         ToolBarHelper::title($this->prefix . 'Subscriptions by Status');
         echo $this->breadcrumbs;
@@ -1314,8 +1277,8 @@ class ReportsController extends FormController {
         $month = $this->app->input->getInt('month', $current_month);
         $list_id = $this->app->input->getInt('list_id', '0');
 
-        $objTable = new ToolsTable();
-        $objTable->add_header("Preferred name,Method,Access,Due,Days to go,Created,Modified,Reminder sent,,");
+        $table = new ToolsTable();
+        $table->add_header("Preferred name,Method,Access,Due,Days to go,Created,Modified,Reminder sent,,");
         $current_year = date('Y');
         $current_month = (int) date('m');
 //        echo "Date is $current_month $current_year< br>";
@@ -1369,22 +1332,22 @@ class ReportsController extends FormController {
 //$this->toolsHelper->showQuery($sql);
         $rows = $this->toolsHelper->getRows($sql);
         foreach ($rows as $row) {
-            $objTable->add_item($row->preferred_name);
-            $objTable->add_item($row->Method);
-            $objTable->add_item($row->Access);
-            $objTable->add_item($row->expiry_date);
-            $objTable->add_item($row->Days);
-            $objTable->add_item($row->created);
-            $objTable->add_item($row->modified);
-            $objTable->add_item($row->reminder_sent);
+            $table->add_item($row->preferred_name);
+            $table->add_item($row->Method);
+            $table->add_item($row->Access);
+            $table->add_item($row->expiry_date);
+            $table->add_item($row->Days);
+            $table->add_item($row->created);
+            $table->add_item($row->modified);
+            $table->add_item($row->reminder_sent);
             $details = $this->toolsHelper->buildlink($target_info . $row->id, '<i class="icon-info"></i>');
             $details .= $this->toolsHelper->buildlink($target_email . $row->user_id . '&list_id=' . $list_id, '<i class="icon-envelope"></i>');
-            $objTable->add_item($details);
-            $objTable->add_item($row->expiry_date);
-//                       $objTable->add_item($row->id);
-            $objTable->generate_line();
+            $table->add_item($details);
+            $table->add_item($row->expiry_date);
+//                       $table->add_item($row->id);
+            $table->generate_line();
         }
-        $objTable->generate_table();
+        $table->generate_table();
         $back = "administrator/index.php?option=com_ra_mailman&task=reports.showDue";
 
         echo $this->toolsHelper->backButton($back);
@@ -1427,37 +1390,37 @@ class ReportsController extends FormController {
         //       echo $sql;
         // return;
         $rows = $this->toolsHelper->getRows($sql);
-        $objTable = new ToolsTable;
-        $objTable->add_header($table_headings);
+        $table = new ToolsTable;
+        $table->add_header($table_headings);
         foreach ($rows as $row) {
 
-            $objTable->add_item($row->group_name);
-            //        $objTable->add_item($row->group_code);
+            $table->add_item($row->group_name);
+            //        $table->add_item($row->group_code);
             //
             if (is_null($row->preferred_name)) {
                 $contact = $row->created_by;
             } else {
                 $contact = $row->preferred_name;
             }
-            $objTable->add_item($contact);
+            $table->add_item($contact);
             if ($showEmail) {
-                $objTable->add_item($row->email);
+                $table->add_item($row->email);
             }
             if ($item->owner_id == $row->user_id) {
-                $objTable->add_item('Owner');
+                $table->add_item('Owner');
             } else {
                 if ($row->record_type == 2) {
-                    $objTable->add_item('Author');
+                    $table->add_item('Author');
                 } else {
-                    $objTable->add_item('Subscriber');
+                    $table->add_item('Subscriber');
                 }
             }
 
-            $objTable->add_item($row->expiry_date);
-            $objTable->add_item($row->Status);
-            $objTable->generate_line();
+            $table->add_item($row->expiry_date);
+            $table->add_item($row->Status);
+            $table->generate_line();
         }
-        $objTable->generate_table();
+        $table->generate_table();
         $target = "administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary";
         echo $this->toolsHelper->backButton($target);
     }
@@ -1476,28 +1439,28 @@ class ReportsController extends FormController {
         $sql_lookup .= 'WHERE list_id=';
 
         $target = 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsReportDetail&id=';
-        $objTable = new ToolsTable;
-        $objTable->add_header('Name,Group,Owner,Active subscribers,Inactive subscribers');
+        $table = new ToolsTable;
+        $table->add_header('Name,Group,Owner,Active subscribers,Inactive subscribers');
         foreach ($rows as $row) {
             if ($row->state == 1) {
                 $name = $row->name;
             } else {
                 $name = '<div style="color:red">' . $row->name . '</div>';
             }
-            $objTable->add_item($name);
-            $objTable->add_item($row->group_code);
+            $table->add_item($name);
+            $table->add_item($row->group_code);
 
-            $objTable->add_item($row->preferred_name);
+            $table->add_item($row->preferred_name);
 
             $count = $this->toolsHelper->getValue($sql_lookup . $row->id . ' AND state=1');
-            $objTable->add_item($this->toolsHelper->buildLink($target . $row->id, $count));
+            $table->add_item($this->toolsHelper->buildLink($target . $row->id, $count));
 
             $count = $this->toolsHelper->getValue($sql_lookup . $row->id . ' AND state=0');
-            $objTable->add_item($count);
+            $table->add_item($count);
 
-            $objTable->generate_line();
+            $table->generate_line();
         }
-        $objTable->generate_table();
+        $table->generate_table();
         $target = "administrator/index.php?option=com_ra_mailman&view=reports";
         echo $this->toolsHelper->backButton($target);
     }

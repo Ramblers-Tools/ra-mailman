@@ -52,6 +52,7 @@ class ProfilesModel extends ListModel {
                 'a.block',
                 'p.home_group',
                 'p.preferred_name',
+                'state',
             );
         }
 

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version     4.5.2
+ * @version     4.7.0
  * @package     com_ra_mailman
  * @copyright   Copyright (C) 2020. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
@@ -24,6 +24,7 @@
  * 14/07/25 CB derive reference columns for Insight Hub from column headings
  * 27/07/25 CB abbreviate_name, check if subscription created OK
  * 16/08/25 CB use ToolsHelper to send emila, not mailHelper
+ * 28/04/26 CB don't use groups_to_follow
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Helpers;
@@ -244,7 +245,7 @@ class UserHelper {
             $query = $db->getQuery(true);
             $query->set('id =' . $db->quote($this->user_id))
                     ->set('home_group =' . $db->quote($this->group_code))
-                    ->set('groups_to_follow  =' . $db->quote($group_code))
+//                    ->set('groups_to_follow  =' . $db->quote($group_code))
                     ->set('preferred_name =' . $db->quote($this->preferred_name))
                     ->set('created =' . $db->quote($date))
                     ->set('created_by =' . $db->quote($created))

@@ -53,6 +53,9 @@ class Import_reportsModel extends ListModel {
                 'a.num_subs',
                 'a.num_lapsed',
                 'a.ip_address',
+                'list_id',
+                'method_id',
+                'state',
             );
         }
 
@@ -105,6 +108,8 @@ class Import_reportsModel extends ListModel {
     protected function getStoreId($id = '') {
         // Compile the store id.
         $id .= ':' . $this->getState('filter.search');
+        $id .= ':' . $this->getState('filter.list_id');
+        $id .= ':' . $this->getState('filter.method_id');
         $id .= ':' . $this->getState('filter.state');
 
         return parent::getStoreId($id);

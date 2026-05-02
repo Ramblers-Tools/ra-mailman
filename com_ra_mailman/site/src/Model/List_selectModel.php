@@ -48,8 +48,17 @@ class List_selectModel extends ListModel {
                 'g.name',
                 'a.record_type',
                 'a.home_group_only',
+                'a.state',
+                'state',
             );
-            $this->search_columns = $config['filter_fields'];
+
+            $this->search_columns = array(
+                'a.group_code',
+                'a.name',
+                'g.name',
+                'a.record_type',
+                'a.home_group_only',
+            );
         }
 
         parent::__construct($config);
@@ -89,7 +98,13 @@ class List_selectModel extends ListModel {
         $query->select('g.name AS `owner`');
         $query->leftJoin($this->_db->qn('#__users') . ' AS `g` ON g.id = a.owner_id');
 
-        $query->where('a.state = 1');
+        $state = $this->getState('filter.state');
+
+        if (is_numeric($state)) {
+            $query->where('a.state = ' . (int) $state);
+        } else {
+            $query->where('a.state = 1');
+        }
         /*
          * Should only show lists "home group only=1" for the users home group
          * ((a.group = $this->home_group) OR (a.home_group_only=0))

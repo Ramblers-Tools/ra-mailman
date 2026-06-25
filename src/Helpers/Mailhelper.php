@@ -1659,7 +1659,7 @@ class Mailhelper {
         }
         $state = 0;       // Cancelled
         if ($this->updateSubscription($list_id, $user_id, $record_type_original, $method_id, $state)) {
-            $message = (JPATH_BASE == JPATH_SITE) ? 'User has been ' : $message = 'User has been Unsubscribed from ';
+            $message = (JPATH_BASE == JPATH_SITE) ? 'You have been unsubscribed from ' : 'User has been unsubscribed from ';
         }
         $message .= ' ' . $item->group_code . ' ' . $item->name;
         $this->message = $message;

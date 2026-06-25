@@ -38,6 +38,7 @@ class HtmlView extends BaseHtmlView {
     protected $group;
     protected $mailHelper;
     protected $toolsHelper;
+    protected $callback;
 
     /**
      * Display the view
@@ -53,6 +54,7 @@ class HtmlView extends BaseHtmlView {
         $app = Factory::getApplication();
         $this->list_id = $app->input->getInt('list_id', '0');
         $this->menu_id = $app->input->getInt('Itemid', '0');
+        $this->callback = $app->input->getCmd('callback', '');
         // Lookup names for List and Group
         $this->toolsHelper = new ToolsHelper;
         if ($this->list_id > 0) {

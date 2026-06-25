@@ -162,7 +162,11 @@ if ($this->list_id >'0') {
 <?php
 echo $this->pagination->getPagesLinks();
  if ($this->list_id >'0') {
-    $back = 'index.php?option=com_ra_mailman&view=mail_lsts&Itemid=' . $this->menu_id;
+    if ($this->callback == 'profile_subscriptions') {
+        $back = 'index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=' . $this->menu_id;
+    } else {
+        $back = 'index.php?option=com_ra_mailman&view=mail_lsts&Itemid=' . $this->menu_id;
+    }
     echo $this->toolsHelper->backButton($back);
  }
 ?>

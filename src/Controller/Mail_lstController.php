@@ -426,6 +426,7 @@ class Mail_lstController extends BaseController {
         $list_id = (int) $objApp->input->getCmd('list_id', '');
         $new_user_id = (int) $objApp->input->getCmd('user_id', '0');
         $menu_id = (int) $objApp->input->getCmd('Itemid', 0);
+        $return = $objApp->input->getCmd('callback', '');
         $current_user_id = Factory::getApplication()->getSession()->get('user')->id;
         //die("Mail_lst/Controller: list=$list_id,  current_user=$current_user_id," . ToolsHelper::canDo('com_ra_mailman'));
 
@@ -451,6 +452,10 @@ class Mail_lstController extends BaseController {
             } else {
                 $callback = 'list_select&user_id=' . $new_user_id;
             }
+        }
+        if ($return == 'profile_subscriptions') {
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=' . $menu_id, false));
+            return;
         }
         $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=' . $callback . '&Itemid=' . $menu_id, false));
     }
@@ -492,6 +497,7 @@ class Mail_lstController extends BaseController {
         $list_id = (int) $objApp->input->getCmd('list_id', '');
         $new_user_id = (int) $objApp->input->getCmd('user_id', '0');
         $menu_id = (int) $objApp->input->getCmd('Itemid', 0);
+        $return = $objApp->input->getCmd('callback', '');
 
         $current_user_id = Factory::getApplication()->getSession()->get('user')->id;
         if ($current_user_id == 0) {
@@ -511,6 +517,10 @@ class Mail_lstController extends BaseController {
             $callback = 'mail_lsts';
         } else {
             $callback = 'list_select&user_id=' . $new_user_id;
+        }
+        if ($return == 'profile_subscriptions') {
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=' . $menu_id, false));
+            return;
         }
         $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=' . $callback . '&Itemid=' . $menu_id, false));
     }

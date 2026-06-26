@@ -125,17 +125,17 @@ class MailshotController extends FormController {
 
     public function testsend($key = null, $urlVar = null) {
         $return = parent::save($key, $urlVar);
+        $data = $this->app->input->get('jform', array(), 'array');
+        $list_id = (int) ($data['mail_list_id'] ?? $this->app->input->getInt('list_id', 0));
         $target = $this->getEditRedirectTarget();
 
         if ($return) {
-            $data = $this->app->input->get('jform', array(), 'array');
-            $mailshot_id = (int) ($data['id'] ?? 0);
-
-            if ($mailshot_id === 0) {
-                $mailshot_id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
-            }
+            $mailshot_id = $this->identifySavedMailshotId($data);
 
             if ($mailshot_id > 0) {
+                $target = 'index.php?option=com_ra_mailman&view=mailshot&layout=edit';
+                $target .= '&id=' . $mailshot_id . '&list_id=' . $list_id;
+
                 $mailHelper = new Mailhelper;
                 if ($mailHelper->sendDraft($mailshot_id)) {
                     $this->app->enqueueMessage($mailHelper->message, 'message');
@@ -150,6 +150,39 @@ class MailshotController extends FormController {
         $this->setRedirect(Route::_($target, false));
 
         return $return;
+    }
+
+    private function identifySavedMailshotId(array $data) {
+        $mailshot_id = (int) ($data['id'] ?? 0);
+
+        if ($mailshot_id > 0) {
+            return $mailshot_id;
+        }
+
+        $mailshot_id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+
+        if ($mailshot_id > 0) {
+            return $mailshot_id;
+        }
+
+        $list_id = (int) ($data['mail_list_id'] ?? $this->app->input->getInt('list_id', 0));
+        $title = trim((string) ($data['title'] ?? ''));
+
+        if ($list_id === 0 || $title === '') {
+            return 0;
+        }
+
+        $query = $this->db->getQuery(true)
+                ->select($this->db->quoteName('id'))
+                ->from($this->db->quoteName('#__ra_mail_shots'))
+                ->where($this->db->quoteName('mail_list_id') . ' = ' . $list_id)
+                ->where($this->db->quoteName('title') . ' = ' . $this->db->quote($title))
+                ->order($this->db->quoteName('id') . ' DESC')
+                ->setLimit(1);
+
+        $this->db->setQuery($query);
+
+        return (int) $this->db->loadResult();
     }
 
     private function isApplyTask($task) {

@@ -11,9 +11,16 @@
 	<description>East Cheshire Ramblers mailman component.</description>
 	<namespace path="src">Ramblers\Component\Ra_mailman</namespace>
 
+	<install>
+		<sql>
+			<file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+		</sql>
+	</install>
+
 	<files folder=".">
 		<folder>forms</folder>
 		<folder>languages</folder>
+		<folder>sql</folder>
 		<folder>src</folder>
 		<folder>tmpl</folder>
 	</files>

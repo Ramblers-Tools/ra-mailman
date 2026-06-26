@@ -105,7 +105,7 @@ $toolsHelper = new ToolsHelper;
                             </button>
                             <button type="submit" class="validate btn btn-success" name="save_continue" onclick="this.form.task.value = 'mailshotform.savecontinue';">
                                 <span class="fas fa-save" aria-hidden="true"></span>
-                                <?php echo Text::_('Save & Continue'); ?>
+                                <?php echo Text::_('Save & Send'); ?>
                             </button>
                             <button type="submit" class="validate btn btn-info" name="test_send" onclick="this.form.task.value = 'mailshotform.testsend';">
                                 <span class="fas fa-envelope" aria-hidden="true"></span>

@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <fieldset label="RA Mailman" name="ra_mailman">
+        <field
+            name="full_version"
+            type="radio"
+            label="Full version:"
+            description="Whether to use the full version of the software (for Group/Area sites) or a sub-set of functionality (for Central Office)"
+             default="Y"
+            >
+            <option value="Y">Full functionality for Group/Area site</option>
+            <option value="N">Sub-set of functionality for Central Office</option>
+        </field>      
+        <field name="email_header" 
+               editor="|" 
+               buttons="true" 
+               filter="raw"
+               type="editor" 
+               default="Sent from xxx Ramblers using the MailMan software package" 
+               label="Email Header" 
+               description="Text at the top of all messages"/>
+        <field name="email_footer" 
+               filter="safehtml" 
+               type="textarea" 
+               default="The Ramblers, 13 Dirty Lane, London SE1 9PA" 
+               label="System footer" 
+               required="true"
+               description="Text to appear at the end of every email" />
+        <field name="website"
+                type="text"
+                label="Website address" 
+                description="Used when creating links in emails for Unsubscribe, Renewals etc" 
+                required="true"
+                hint="https://xxxramblers.org.uk"/>
+        <field name="max_online_send"
+                type="text"
+                filter="int"
+                label="Max Emails to send on-line" 
+                description="Maximum number of Emails to send immediately" 
+                required="true"
+                default="100"/>    
+        <field name="max_emails"
+                type="text"
+                filter="int"
+                label="Max Emails" 
+                description="Maximum number of Emails to send at one time in batch mode" 
+                required="true"
+                default="100"/>    
+            <field name="mailshot_send_message" 
+               filter="safehtml" 
+               type="textarea" 
+               default="Mailshot has been logged for dispatch and will be processed shortly" 
+               label="Send message" 
+               required="true"
+               description="Text to be shown when waiting for off-line processing" />
+    </fieldset>
+    <fieldset name="dataload" label="Dataload">
+        <field name="max_errors"
+                type="text"
+                filter="int"
+                label="Max Errors" 
+                description="Maximum error when loading Users from a file" 
+                required="true"
+                default="50"/> 
+        <field
+            name="abbreviate_name"
+            type="radio"
+            label="Abbreviate name:"
+            description="Action to be taken when importing members from Insight file"
+            default="N"
+            >
+            <option value="N">Create preferred name with Surname in full</option>
+            <option value="Y">Create preferred name with first initial of Surname</option>
+        </field>  
+      
+        <field name="email_domain"
+                type="text"
+                label="Email domain" 
+                description="When Users are blocked, they will be given a dummy email address in this domain " 
+                default="ramblers.org.uk"
+                showon="members_leave:B"
+                hint="ramblers.org.uk"/>
+
+
+    </fieldset>
+    <fieldset name="colours" label="Colours">
+        <field
+            name="colour_header" 
+            type="color" 
+            format="rgba"
+            label="Header colour"
+            default="rgba(155, 200, 171, 0.5)"
+            description="Background colour of the email header"
+        />
+        <field
+            name="colour_body" 
+            type="color" 
+            format="rgba"
+            label="Body colour"
+            default="rgba(155, 200, 171, 0.1)"
+            description="Background colour of the email body"
+        />        
+        <field
+            name="colour_event" 
+            type="color" 
+            format="rgba"
+            label="Event colour"
+            default="rgba(156,200,171, 0.2)"
+            description="Background colour for any link to a bookable Event"
+        />
+        <field
+            name="colour_footer" 
+            type="color" 
+            format="rgba"
+            label="Footer colour"
+            default="rgba(155, 200, 171, 1)"
+            description="Background colour of the email footer"
+        />
+    </fieldset>
+    <fieldset label="Logo" name="logo">  *
+        <field name="note1" type="note" label="If the file is found in folder /images/com_ra_mailman, it will be added to the top of each email."/>      
+        <field name="logo_file"
+                type="text"
+                label="Logo" 
+                description="Name of the file to be displayed at top of each email" 
+                required="true"
+                hint="Logo.png"/>
+        <field name="note2" type="note" label="You can specify here the size at which it should be displayed."/>
+        <field name="height"
+               maxlength="3" 
+               filter="safehtml" 
+               type="text" 
+               label="Height" 
+               description="Height of the image, in pixels" 
+               default="90"/>     
+        <field name="width"
+               maxlength="3" 
+               filter="safehtml" 
+               type="text" 
+               label="Width" 
+               description="Width of the image, in pixels" 
+               default="90"/>             
+        <field
+            name="logo_align"
+            type="radio"
+            label="Logo alignment:"
+            description="Whether logo should float to the right or to the left"
+            default="right"
+            >
+            <option value="right">Right</option>
+            <option value="left">Left</option>
+        </field>    
+    </fieldset>
+    <fieldset label="Registration" name="registration">
+        <field name="welcome_message"
+               maxlength="255" 
+               filter="safehtml" 
+               type="text" 
+               label="Welcome message" 
+               description="Message to be shown after successful registration" 
+               default="Thank you for registering."/> 
+        <field name="email_new_user" 
+               type="user" 
+               label="User to be notified" 
+               description="User to be notified when new User signs up" 
+               hint="webmaster@....."/>
+    </fieldset>
+    <fieldset label="Batch mode" name="batch_mode">
+        <field name="email_detail"
+               maxlength="255" 
+               filter="safehtml" 
+               type="text" 
+               label="Email details" 
+               description="Details of 'From': Name,email address"
+               hint="MailMan,webmaster@....."/>
+        <field name="notify_interval" 
+               first="7" last="35" 
+               step="2" 
+               type="integer" 
+               default="28" 
+               label="Notify interval (days)" 
+               description="How long in advace a reminder should be sent" 
+               hint="28"/>
+    </fieldset> 
+    <fieldset name="permissions" description="JCONFIG_PERMISSIONS_DESC" label="JCONFIG_PERMISSIONS_LABEL">
+        <field name="rules" 
+               type="rules" 
+               component="com_ra_mailman" 
+               class="inputbox" 
+               filter="rules" 
+               validate="rules" 
+               label="JCONFIG_PERMISSIONS_LABEL" 
+               section="component" />
+    </fieldset>
+
+    <fieldset name="component">
+        <field
+            name="save_history"
+            type="radio"
+            default="0"
+            label="JGLOBAL_SAVE_HISTORY_OPTIONS_LABEL"
+            description="JGLOBAL_SAVE_HISTORY_OPTIONS_DESC"
+            layout="joomla.form.field.radio.switcher"
+            >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+
+        <field name="history_limit" type="text" filter="integer" label="JGLOBAL_HISTORY_LIMIT_OPTIONS_LABEL" description="JGLOBAL_HISTORY_LIMIT_OPTIONS_DESC" default="5"/>
+
+        <field
+          name="sef_ids"
+          type="radio"
+          layout="joomla.form.field.radio.switcher"
+          default="0"
+          label="JGLOBAL_SEF_NOIDS_LABEL"
+          description="JGLOBAL_SEF_NOIDS_DESC"
+          filter="integer"
+          >
+          <option value="0">JNO</option>
+          <option value="1">JYES</option>
+        </field>
+    </fieldset>
+</config>
+<!--
+########################################################################################
+The following are a list of all the different types of fields you can add to this file
+They are here for copy pasting - neat eh?
+########################################################################################
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mycalendar" type="calendar" default="5-10-2008" label="Select a date" description="" format="%d-%m-%Y" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mycategory" type="category" label="Select a category" description="" section="3" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myeditor" type="editors" default="none" label="Select an editor" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myfile" type="filelist" default="" label="Select a file" description="" directory="administrator" filter="" exclude="" stripext="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myfolder" type="folderlist" default="" label="Select a folder" directory="administrator" filter="" exclude="" stripext="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myhelpsite" type="helpsites" default="" label="Select a help site" description="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mysecretvariable" type="hidden" default="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myimage" type="imagelist" default="" label="Select an image" description="" directory="" exclude="" stripext="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mylanguage" type="languages" client="site" default="en-GB" label="Select a language" description="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mylistvalue" type="list" default="" label="Select an option" description="">
+  <option value="0">Option 1</option>
+  <option value="1">Option 2</option>
+</field>
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mymenu" type="menu" default="mainmenu" label="Select a menu" description="Select a menu" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mymenuitem" type="menuitem" default="45" label="Select a menu item" description="Select a menu item" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mypassword" type="password" default="secret" label="Enter a password" description="" size="5" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myradiovalue" type="radio" default="0" label="Select an option" description="">
+  <option value="0">1</option>
+  <option value="1">2</option>
+</field>
+
+https://docs.joomla.org/Standard_form_field_types
+<field type="spacer" default="&lt;b&gt;Advanced parameters&lt;/b&gt;" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myfield" type="sql" default="10" label="Select an article" query="SELECT id, title FROM #__content" key_field=”id” value_field=”title” />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mytextvalue" type="text" default="Some text" label="Enter some text" description="" size="10" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mytextarea" type="textarea" default="default" label="Enter some text" description="" rows="10" cols="5" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="mytimezone" type="timezones" default="-10" label="Select a timezone" description="" />
+
+https://docs.joomla.org/Standard_form_field_types
+<field name="myusergroups" type="usergroup" default="" label="Select a user group" description="" />
+
+
+-->

@@ -9,7 +9,7 @@ package="${component}-${version}.zip"
 rm -rf dist
 mkdir -p dist
 
-zip -r "dist/${package}" "$manifest" forms languages sql src tmpl \
+zip -r "dist/${package}" "$manifest" admin forms languages sql src tmpl \
 	-x '.DS_Store' \
 	-x '*/.DS_Store' \
 	-x '*.old' \

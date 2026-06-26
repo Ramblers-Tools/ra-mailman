@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>webmaster@bigley.me.uk</authorEmail>
 	<authorUrl>https://ramblerseastcheshire.org.uk/</authorUrl>
-	<version>1.0.1</version>
+	<version>1.0.2</version>
 	<description>East Cheshire Ramblers mailman component.</description>
 	<namespace path="src">Ramblers\Component\Ra_mailman</namespace>
 
@@ -24,6 +24,12 @@
 		<folder>src</folder>
 		<folder>tmpl</folder>
 	</files>
+
+	<administration>
+		<files folder="admin">
+			<filename>index.html</filename>
+		</files>
+	</administration>
 
 	<updateservers>
 		<server type="extension" priority="1" name="RA Mailman Updates">https://raw.githubusercontent.com/East-Cheshire-Ramblers/com_ra_mailman/joomla-auto-update/updates/com_ra_mailman.xml</server>

@@ -25,6 +25,7 @@ use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Utilities\ArrayHelper;
 use Joomla\CMS\MVC\Model\BaseDatabaseModel;
+use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 
 /**
  * Mailshot class.
@@ -260,6 +261,160 @@ class MailshotformController extends FormController {
             $this->app->setUserState('com_ra_mailman.edit.mailshot.data', null);
 
             // Invoke the postSave method to allow for the child class to access the model.
+            $this->postSaveHook($model, $data);
+        }
+
+        /**
+         * Save the current mailshot, send a draft/test email, and return to the edit screen.
+         */
+        public function testsend($key = NULL, $urlVar = NULL) {
+            // Check for request forgeries.
+            $this->checkToken();
+
+            $model = $this->getModel('Mailshotform', 'Site');
+            $data = $this->input->get('jform', array(), 'array');
+            $list_id = $data['mail_list_id'] ?? 0;
+
+            $form = $model->getForm();
+            if (!$form) {
+                throw new \Exception($model->getError(), 500);
+            }
+
+            $objData = (object) $data;
+            $this->app->triggerEvent(
+                'onContentNormaliseRequestData',
+                array($this->option . '.' . $this->context, $objData, $form)
+            );
+            $data = (array) $objData;
+            $data = $model->validate($form, $data);
+
+            if ($data === false) {
+                $errors = $model->getErrors();
+                for ($i = 0, $n = count($errors); $i < $n && $i < 3; $i++) {
+                    if ($errors[$i] instanceof \Exception) {
+                        $this->app->enqueueMessage($errors[$i]->getMessage(), 'warning');
+                    } else {
+                        $this->app->enqueueMessage($errors[$i], 'warning');
+                    }
+                }
+
+                $jform = $this->input->get('jform', array(), 'ARRAY');
+                $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $jform);
+                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+                $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
+                $target .= '&list_id=' . $list_id;
+                $this->setRedirect(Route::_($target, false));
+                $this->redirect();
+            }
+
+            $return = $model->save($data);
+
+            if ($return === false) {
+                $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $data);
+                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+                $this->setMessage(Text::sprintf('Save failed', $model->getError()), 'warning');
+                $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
+                $target .= '&list_id=' . $list_id;
+                $this->setRedirect(Route::_($target, false));
+                $this->redirect();
+            }
+
+            if ($return) {
+                $model->checkin($return);
+            }
+
+            $mailHelper = new Mailhelper;
+            if ($mailHelper->sendDraft((int) $return)) {
+                $this->setMessage($mailHelper->message, 'message');
+            } else {
+                $this->setMessage($mailHelper->message ?: 'Unable to send test email', 'warning');
+            }
+
+            $this->app->setUserState('com_ra_mailman.edit.mailshot.id', $return);
+            $this->app->setUserState('com_ra_mailman.edit.mailshot.data', null);
+
+            $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $return;
+            $target .= '&list_id=' . $list_id;
+            $this->setRedirect(Route::_($target, false));
+
+            $this->postSaveHook($model, $data);
+        }
+
+        /**
+         * Save the current mailshot, send it, and return to the mailing-list screen.
+         */
+        public function saveandsend($key = NULL, $urlVar = NULL) {
+            // Check for request forgeries.
+            $this->checkToken();
+
+            $model = $this->getModel('Mailshotform', 'Site');
+            $data = $this->input->get('jform', array(), 'array');
+            $list_id = $data['mail_list_id'] ?? 0;
+
+            $form = $model->getForm();
+            if (!$form) {
+                throw new \Exception($model->getError(), 500);
+            }
+
+            $objData = (object) $data;
+            $this->app->triggerEvent(
+                'onContentNormaliseRequestData',
+                array($this->option . '.' . $this->context, $objData, $form)
+            );
+            $data = (array) $objData;
+            $data = $model->validate($form, $data);
+
+            if ($data === false) {
+                $errors = $model->getErrors();
+                for ($i = 0, $n = count($errors); $i < $n && $i < 3; $i++) {
+                    if ($errors[$i] instanceof \Exception) {
+                        $this->app->enqueueMessage($errors[$i]->getMessage(), 'warning');
+                    } else {
+                        $this->app->enqueueMessage($errors[$i], 'warning');
+                    }
+                }
+
+                $jform = $this->input->get('jform', array(), 'ARRAY');
+                $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $jform);
+                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+                $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
+                $target .= '&list_id=' . $list_id;
+                $this->setRedirect(Route::_($target, false));
+                $this->redirect();
+            }
+
+            $return = $model->save($data);
+
+            if ($return === false) {
+                $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $data);
+                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+                $this->setMessage(Text::sprintf('Save failed', $model->getError()), 'warning');
+                $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
+                $target .= '&list_id=' . $list_id;
+                $this->setRedirect(Route::_($target, false));
+                $this->redirect();
+            }
+
+            if ($return) {
+                $model->checkin($return);
+            }
+
+            $mailHelper = new Mailhelper;
+            $total = (int) $mailHelper->countSubscribers((int) $list_id);
+            $mailHelper->send((int) $return, $total);
+
+            if (empty($mailHelper->messages)) {
+                $this->setMessage(Text::_('Mailshot send started'));
+            }
+
+            $this->app->setUserState('com_ra_mailman.edit.mailshot.id', null);
+            $this->app->setUserState('com_ra_mailman.edit.mailshot.data', null);
+
+            $menu = Factory::getApplication()->getMenu();
+            $item = $menu->getActive();
+            $url = (empty($item->link) ? 'index.php?option=com_ra_mailman&view=mail_lsts' : $item->link);
+            $this->setRedirect(Route::_($url, false));
+
             $this->postSaveHook($model, $data);
         }
     /**

@@ -103,9 +103,13 @@ $toolsHelper = new ToolsHelper;
                                 <span class="fas fa-check" aria-hidden="true"></span>
                                 <?php echo Text::_('Save & Close'); ?>
                             </button>
-                            <button type="submit" class="validate btn btn-success" name="save_continue" onclick="this.form.task.value = 'mailshotform.savecontinue';">
+                            <button type="submit" class="validate btn btn-success" name="save_send" onclick="this.form.task.value = 'mailshotform.saveandsend';">
                                 <span class="fas fa-save" aria-hidden="true"></span>
-                                <?php echo Text::_('Save & Continue'); ?>
+                                <?php echo Text::_('Save & Send'); ?>
+                            </button>
+                            <button type="submit" class="validate btn btn-info" name="test_send" onclick="this.form.task.value = 'mailshotform.testsend';">
+                                <span class="fas fa-envelope" aria-hidden="true"></span>
+                                <?php echo Text::_('Send Test'); ?>
                             </button>
                         <?php endif; ?>
                         <a class="btn btn-danger"

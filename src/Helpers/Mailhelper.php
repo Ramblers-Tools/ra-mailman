@@ -1087,6 +1087,9 @@ class Mailhelper {
 
     public function sendDraft($mailshot_id) {
 //        die('helper sendDraft ' . $mailshot_id);
+        $this->message = '';
+        $this->attachments = [];
+
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {

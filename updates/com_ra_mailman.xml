@@ -11,7 +11,7 @@
 		<downloads>
 			<downloadurl type="full" format="zip">https://github.com/East-Cheshire-Ramblers/com_ra_mailman/releases/download/v1.0.16/com_ra_mailman-1.0.16.zip</downloadurl>
 		</downloads>
-		<sha256>af50e7c41107d8cd31b3e05f95f6d55b58ba7d17efc41e5a83834e32a040647b</sha256>
+		<sha256>4b7855f6d4ea67f9eec696b53f622db954a4ce639f70f4c20ca73d8d1f896737</sha256>
 		<targetplatform name="joomla" version="5.*"/>
 	</update>
 </updates>

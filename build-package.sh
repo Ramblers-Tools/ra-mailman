@@ -12,6 +12,8 @@ mkdir -p dist
 zip -r "dist/${package}" "$manifest" admin forms languages src tmpl \
 	-x '.DS_Store' \
 	-x '*/.DS_Store' \
+	-x '._*' \
+	-x '*/._*' \
 	-x '*.old' \
 	-x '*.old2'
 

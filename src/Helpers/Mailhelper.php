@@ -101,14 +101,15 @@ class Mailhelper {
         $header .= '</div>';
 
         $logo_path = '/' . ltrim($logo, '/');
-        $logo_url = ltrim($logo, '/');
-        $logo_url = preg_replace('#^https?://[^"\'>\s]*/(https?://[^"\'>\s]+)#i', '$1', $logo_url);
-        $website_url = rtrim($setup->website, '/');
-        $website_url = preg_replace('#^https?://[^"\'>\s]*/(https?://[^"\'>\s]+)#i', '$1', $website_url);
+        $logo_url = $this->normaliseMailshotImageSrc($logo, $setup->website);
+        $website_url = rtrim($this->collapseDuplicatedAbsoluteUrls($setup->website), '/');
+        if ($website_url === '') {
+            $website_url = rtrim(Uri::root(), '/');
+        }
 //      Add the logo block if a file is configured.
         if (($logo != '') && (preg_match('#^https?://#i', $logo_url) || file_exists(JPATH_ROOT . $logo_path))) {
             $header .= '<a href="' . $website_url . '/" style="flex-shrink: 0; display: flex;">';
-            $header .= '<img src="https://ramblerseastcheshire.org.uk/images/com_ra_mailman/logo.png" ';
+            $header .= '<img src="' . htmlspecialchars($logo_url, ENT_QUOTES, 'UTF-8') . '" ';
             $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%; height: auto;" ';
             $header .= 'alt="Logo">';
             $header .= '</a>';
@@ -132,7 +133,7 @@ class Mailhelper {
             $path = JPATH_ROOT . '/images/com_ra_mailman/' . $file;
             if (file_exists($path)) {
                 $images .= '<div style="margin: 12px 0;">';
-                $images .= '<img src="' . Uri::root() . 'images/com_ra_mailman/' . rawurlencode($file) . '" ';
+                $images .= '<img src="' . $this->getMailshotAssetRoot('') . 'images/com_ra_mailman/' . rawurlencode($file) . '" ';
                 $images .= 'alt="' . htmlspecialchars($file, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100%; height: auto;">';
                 $images .= '</div>';
             }
@@ -142,30 +143,73 @@ class Mailhelper {
     }
 
     private function collapseDuplicatedAbsoluteUrls($html) {
-        $html = preg_replace('#https?://([^/"\'>\s]+)/(https?://\1/)#i', '$2', $html);
-        $html = str_replace(
-            'https://ramblerseastcheshire.org.uk/https://ramblerseastcheshire.org.uk/',
-            'https://ramblerseastcheshire.org.uk/',
-            $html
-        );
+        do {
+            $previous = $html;
+            $html = preg_replace('#https?://([^/"\'>\s]+)/(https?://\1/)#i', '$2', $html);
+            $html = preg_replace('#https?://[^"\'>\s]*/(https?://[^"\'>\s]+)#i', '$1', $html);
+        } while ($html !== $previous);
 
-        return preg_replace('#https?://[^"\'>\s]*/(https?://[^"\'>\s]+)#i', '$1', $html);
+        return $html;
+    }
+
+    private function getMailshotAssetRoot($website) {
+        $root = trim((string) Uri::root());
+
+        if (!preg_match('#^https?://#i', $root)) {
+            $root = trim((string) $website);
+        }
+
+        $root = $this->collapseDuplicatedAbsoluteUrls($root);
+
+        return rtrim($root, '/') . '/';
+    }
+
+    private function getHostFromUrl($url) {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return is_string($host) ? strtolower($host) : '';
+    }
+
+    private function normaliseMailshotImageSrc($src, $website) {
+        $src = trim($this->collapseDuplicatedAbsoluteUrls((string) $src));
+
+        if ($src === '' || preg_match('#^(?:data:|cid:|mailto:|tel:|#)#i', $src)) {
+            return $src;
+        }
+
+        $root = $this->getMailshotAssetRoot($website);
+        $current_host = $this->getHostFromUrl($root);
+        $configured_host = $this->getHostFromUrl($this->collapseDuplicatedAbsoluteUrls((string) $website));
+
+        if (preg_match('#^/?images/#i', $src)) {
+            return $root . ltrim($src, '/');
+        }
+
+        if (preg_match('#/((?:[^/"\'>\s]+/)*images/[^"\'>\s]+)#i', $src, $path_match)) {
+            $src_host = $this->getHostFromUrl($src);
+            $has_nested_host = preg_match('#^https?://[^/"\'>\s]+/(?:https?://|[^/"\'>\s]+\.[^/"\'>\s]+/)#i', $src);
+
+            if ($has_nested_host || $src_host === $current_host || ($configured_host !== '' && $src_host === $configured_host)) {
+                $path = preg_replace('#^(?:[^/]+/)*?(images/)#i', '$1', $path_match[1]);
+
+                return $root . ltrim($path, '/');
+            }
+        }
+
+        if (preg_match('#^(?:[a-z][a-z0-9+.-]*:|//)#i', $src)) {
+            return $src;
+        }
+
+        return $root . ltrim($src, '/');
     }
 
     private function normaliseMailshotImageUrls($html, $website) {
         $html = $this->collapseDuplicatedAbsoluteUrls($html);
-        $root = rtrim($website, '/') . '/';
-        $root = $this->collapseDuplicatedAbsoluteUrls($root);
 
-        return preg_replace_callback('/(<img\b[^>]*\bsrc=)(["\'])([^"\']+)(\2)/i', function ($matches) use ($root) {
-            $src = trim($matches[3]);
-            $src = $this->collapseDuplicatedAbsoluteUrls($src);
+        return preg_replace_callback('/(<img\b[^>]*\bsrc=)(["\'])([^"\']+)(\2)/i', function ($matches) use ($website) {
+            $src = $this->normaliseMailshotImageSrc($matches[3], $website);
 
-            if ($src === '' || preg_match('#^(?:[a-z][a-z0-9+.-]*:|//|#)#i', $src)) {
-                return $matches[1] . $matches[2] . $src . $matches[4];
-            }
-
-            return $matches[1] . $matches[2] . $root . ltrim($src, '/') . $matches[4];
+            return $matches[1] . $matches[2] . $src . $matches[4];
         }, $html);
     }
 
@@ -1490,16 +1534,19 @@ class Mailhelper {
 
     private function cleanStoredMailshotMessage($mailshot_id) {
         $db = Factory::getDbo();
-        $query = $db->getQuery(true);
 
-        $field = $db->quoteName('final_message') . ' = REPLACE('
-                . $db->quoteName('final_message') . ', '
-                . $db->quote('https://ramblerseastcheshire.org.uk/https://ramblerseastcheshire.org.uk/') . ', '
-                . $db->quote('https://ramblerseastcheshire.org.uk/')
-                . ')';
+        $query = $db->getQuery(true)
+                ->select($db->quoteName('final_message'))
+                ->from($db->quoteName('#__ra_mail_shots'))
+                ->where($db->quoteName('id') . ' = ' . (int) $mailshot_id);
 
-        $query->update($db->quoteName('#__ra_mail_shots'))
-                ->set($field)
+        $db->setQuery($query);
+        $message = (string) $db->loadResult();
+        $message = $this->collapseDuplicatedAbsoluteUrls($message);
+
+        $query = $db->getQuery(true)
+                ->update($db->quoteName('#__ra_mail_shots'))
+                ->set($db->quoteName('final_message') . ' = ' . $db->quote($message))
                 ->where($db->quoteName('id') . ' = ' . (int) $mailshot_id);
 
         $db->setQuery($query);

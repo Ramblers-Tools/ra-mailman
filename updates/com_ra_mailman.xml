@@ -5,13 +5,13 @@
 		<description>East Cheshire Ramblers mailman component.</description>
 		<element>com_ra_mailman</element>
 		<type>component</type>
-		<version>1.0.16</version>
+		<version>1.0.17</version>
 		<client>administrator</client>
-		<infourl title="Release notes">https://github.com/East-Cheshire-Ramblers/com_ra_mailman/releases/tag/v1.0.16</infourl>
+		<infourl title="Release notes">https://github.com/East-Cheshire-Ramblers/com_ra_mailman/releases/tag/v1.0.17</infourl>
 		<downloads>
-			<downloadurl type="full" format="zip">https://github.com/East-Cheshire-Ramblers/com_ra_mailman/releases/download/v1.0.16/com_ra_mailman-1.0.16.zip</downloadurl>
+			<downloadurl type="full" format="zip">https://github.com/East-Cheshire-Ramblers/com_ra_mailman/releases/download/v1.0.17/com_ra_mailman-1.0.17.zip</downloadurl>
 		</downloads>
-		<sha256>4b7855f6d4ea67f9eec696b53f622db954a4ce639f70f4c20ca73d8d1f896737</sha256>
+		<sha256>bdbe51b13e265b31fcd014edc1cbd919cd1d48c016c0def7e76c78771e293624</sha256>
 		<targetplatform name="joomla" version="5.*"/>
 	</update>
 </updates>

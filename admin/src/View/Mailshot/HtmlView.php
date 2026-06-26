@@ -18,6 +18,7 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use \Joomla\CMS\Component\ComponentHelper;
+use \Joomla\CMS\Toolbar\Toolbar;
 use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Factory;
 use Joomla\CMS\Helper\ContentHelper;
@@ -131,6 +132,12 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         if (!$checkedOut && ($canDo->get('core.edit') || ($canDo->get('core.create')))) {
             ToolbarHelper::apply('mailshot.apply', 'JTOOLBAR_APPLY');
             ToolbarHelper::save('mailshot.save', 'JTOOLBAR_SAVE');
+            Toolbar::getInstance('toolbar')
+                    ->standardButton('testsend')
+                    ->text('Send Test')
+                    ->task('mailshot.testsend')
+                    ->icon('icon-envelope')
+                    ->formValidation(true);
         }
 
         if (empty($this->item->id)) {

@@ -255,7 +255,7 @@ class MailshotController extends FormController {
         $prev_id = $this->toolsHelper->getValue($sql);
 
 //        echo "<p>" . $item->body . "</p>";
-        echo $item->final_message;
+        echo $this->toolsHelper->makeEmailImageUrlsAbsolute($item->final_message);
         if ($item->attachment !== '') {
             $attach_array = explode(',', $item->attachment);
             echo 'Attachment: ';

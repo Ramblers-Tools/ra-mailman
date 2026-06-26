@@ -103,7 +103,7 @@ echo 'Select subscriptions for ' . $this->user_name . '</h2>';
                             $count = $this->objHelper->getValue($sql);
 
                             if (($item->home_only == 'Yes') AND ($this->group_code != $item->group_code)) {
-                                $action = 'Not available';
+                                $action = '';
                                 $icon = 'minus';
                             } else {
                                 // See if User is already subscribed

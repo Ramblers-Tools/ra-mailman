@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version    4.7.3
+ * @version    4.7.9
  * @package    com_ra_mailman
  * @author     Charlie Bigley <webmaster@bigley.me.uk>
  * @copyright  2023 Charlie Bigley
@@ -82,7 +82,7 @@ class MailshotController extends FormController {
         $sql .= 'INNER JOIN #__ra_mail_lists AS l ON l.id = m.mail_list_id ';
         $sql .= 'WHERE m.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
- //       var_dump($item);
+        //       var_dump($item);
 //        die;
         if ($item) {
             $sql = 'UPDATE #__ra_mail_lists SET emails_outstanding=0 WHERE id=' . $item->id;
@@ -387,13 +387,18 @@ class MailshotController extends FormController {
                     foreach ($mailHelper->messages as $message) {
                         $this->app->enqueueMessage($message, 'info');
                     }
-                }   
+                }
             } else {
                 $mailHelper->send($mailshot_id, $total);
             }
         }
 
         $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');
+    }
+
+    public function test() {
+        $mailHelper = new Mailhelper;
+        $mailHelper->updateDate(40, processing_started);
     }
 
 }

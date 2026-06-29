@@ -56,7 +56,7 @@
                 name="mail_list"
                 type="sql"
                 label="Mailing list"
-                query="SELECT id AS value, CONCAT(group_code,' ',name) as mail_list FROM `#__ra_mail_lists`"
+                query="SELECT id AS value, CONCAT(group_code,' ',name) as mail_list FROM `#__ra_mail_lists`ORDER BY group_code, name"
                 required="true"
             />
             <field

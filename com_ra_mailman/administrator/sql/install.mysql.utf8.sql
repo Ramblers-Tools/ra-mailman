@@ -7,6 +7,7 @@
 # 20/10/25 CB added mail_lists / emails_outstanding
 # 30/03/26 CB mailshots: add record_type and event_id
 # 29/04/26 CB add mail_lists / description
+# 22/06/26 CB add mailshot / reply_to
 CREATE TABLE IF NOT EXISTS `#__ra_emails` (
     `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
     `sub_system` VARCHAR(10)  NULL  DEFAULT "",
@@ -20,6 +21,8 @@ CREATE TABLE IF NOT EXISTS `#__ra_emails` (
     `title` VARCHAR(100)  NOT NULL ,
     `body` TEXT NOT NULL ,
     `attachments` TEXT NULL ,
+`contact_id` INT(11),
+`reply_to` VARCHAR(255)  NOT NULL ,
     `state` TINYINT(1)  NULL  DEFAULT 1,
     `created` DATETIME NULL  DEFAULT NULL ,
     `created_by` INT(11)  NULL  DEFAULT 0,
@@ -138,6 +141,7 @@ CREATE TABLE IF NOT EXISTS `#__ra_mail_shots` (
         `attachment` VARCHAR(255) NOT NULL DEFAULT '',
         `processing_started` DATETIME DEFAULT NULL,
         `date_sent` DATETIME DEFAULT NULL,
+        `reply_to` VARCHAR(255) NULL,
         `state` TINYINT NOT NULL,
  	`created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   
 	`created_by` INT NULL DEFAULT "0",

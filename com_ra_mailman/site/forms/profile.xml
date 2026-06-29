@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+  <fieldset 
+    addfieldprefix="Ramblers\Component\Ra_tools\Administrator\Field"
+    addruleprefix="Ramblers\Component\Ra_tools\Administrator\Rule"
+  > 
+    <field name="id" type="text" readonly="true" class="readonly" default="0" description="JGLOBAL_FIELD_ID_DESC"/>
+    
+    <field name="group_code" 
+        filter="safehtml" 
+        type="text" 
+        validate="groupcode" 
+        maxlength="4"
+        required="true" 
+        label="Code for Home Group" 
+        description="Group with which registered at Central Office" 
+        hint="aa01"
+    />
+    <field name="real_name" 
+        maxlength="60" 
+        filter="string" 
+        type="text" 
+        required="true" 
+        label="Your real name" 
+        description="Your actual name (will not be shown publicly)" 
+        hint="Name"
+    />
+    <field name="preferred_name" 
+        maxlength="60" 
+        filter="string" 
+        type="text" 
+        required="true" 
+        label="Preferred name" 
+        description="Name by which you prefer to be known" 
+        hint="Nickname"
+    />
+    <field name="email" 
+        validate="email" 
+        type="email" 
+        label="Email" 
+        description="Email address" 
+        hint="aaaa@bbb.com"
+    />
+    <field name="message" 
+        maxlength="60" 
+        filter="string" 
+        type="text" 
+        readonly="true" 
+        label="message" 
+    />
+    <field name="mode"
+        type="text"
+        readonly="true"
+    />                
+  </fieldset>
+</form>
+
+

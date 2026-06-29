@@ -20,6 +20,7 @@
  * 14/07/25 CB message if Resend
  * 08/08/25 CB show emails_outstanding on Resend
  * 20/10/25 CB new mechanism for send
+ * 05/06/26 CB correct count of subscribers
  */
 // No direct access
 defined('_JEXEC') or die;
@@ -130,10 +131,10 @@ $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
                     echo '<td>' . $item->list_type . '</td>';     // Open or Closed
                     echo '<td>' . $item->public . '</td>';        // Open to other groups?
                     // Find the number of subscribers to this list
-                    // If subs are present for a non-existent user, they will be counted here
                     echo '<td>';
-                    $sql = 'SELECT COUNT(id) FROM #__ra_mail_subscriptions ';
-                    $sql .= 'WHERE state=1 AND list_id=' . $item->id;
+                    $sql = 'SELECT COUNT(s.id) FROM #__ra_mail_subscriptions AS s ';
+                    $sql .= 'INNER JOIN #__ra_profiles AS p ON p.id = s.user_id ';
+                    $sql .= 'WHERE s.state=1 AND s.list_id=' . $item->id;
                     $count = $toolsHelper->getValue($sql);
                     // Allow the owner of the list to see who the subscribers are
                     if ($count > 0) {

@@ -1,6 +1,7 @@
+
 <?php
 /**
- * @version    4.6.0
+ * @version    4.7.6
  * @package    com_ra_mailman
  * @author     Charlie Bigley <webmaster@bigley.me.uk>
  * @copyright  2024 Charlie Bigley
@@ -11,6 +12,8 @@
  * 12/10/24 CB Use literal for Save
  * 13/02/24 CB don't use getIdentity
  * 29/09/25 CB add field to select invitation list
+ * 07/06/26 CB Add extra tab
+ * 23/06/26 CB add fields reply_to and invitation_preamble
  */
 // No direct access
 defined('_JEXEC') or die;
@@ -48,16 +51,16 @@ $toolsHelper = new ToolsHelper;
             <form id="form-mailshot"
                   action="<?php echo Route::_('index.php?option=com_ra_mailman&task=mailshotform.save'); ?>"
                   method="post" class="form-validate form-horizontal" enctype="multipart/form-data">
-
+                      <?php
+                      echo HTMLHelper::_('uitab.startTabSet', 'myTab', array('active' => 'event'));
+                      echo HTMLHelper::_('uitab.addTab', 'myTab', 'event1', 'Basic');
+                      ?>
                 <input type="hidden" name="jform[id]" value="<?php echo isset($this->item->id) ? $this->item->id : ''; ?>" />
 
                 <input type="hidden" name="jform[state]" value="<?php echo isset($this->item->state) ? $this->item->state : ''; ?>" />
 
                 <?php echo $this->form->getInput('created_by'); ?>
                 <?php echo $this->form->getInput('modified_by'); ?>
-                <?php //echo HTMLHelper::_('uitab.startTabSet', 'myTab', array('active' => 'mailshot'));   ?>
-                <?php //echo HTMLHelper::_('uitab.addTab', 'myTab', 'mailshot', Text::_('COM_RA_MAILMAN_TAB_MAILSHOT', true)); ?>
-
                 <?php
                 echo $this->form->renderField('title');
                 echo $this->form->renderField('body');
@@ -65,16 +68,26 @@ $toolsHelper = new ToolsHelper;
 //                   echo $this->form->renderField('date_sent');
 //               }
                 echo $this->form->renderField('mail_list_id');
+
+                echo HTMLHelper::_('uitab.endTab');
+                echo HTMLHelper::_('uitab.addTab', 'myTab', 'event5', 'Extras');
+                echo $this->form->renderField('contact_id');
+                if ($toolsHelper->isSuperuser()) {
+                    echo $this->form->renderField('reply_to');
+                }
+                echo $this->form->renderField('attachment');
                 if (ToolsHelper::isInstalled('com_ra_events')) {
                     $sql = 'SELECT COUNT(id) FROM `#__ra_events` ';
                     $sql .= 'WHERE bookable=1 AND DATEDIFF(event_date, CURRENT_DATE)>0 ';
                     $sql .= 'AND api_site_id IS NULL ';
                     $count = $toolsHelper->getValue($sql);
-                    if ($count > 0) {
+                    if ($count == 0) {
+                        echo $this->form->renderfield('no_bookings');
+                    } else {
+                        echo $this->form->renderField('invitation_preamble');
                         echo $this->form->renderField('event_id');
                     }
                 }
-                echo $this->form->renderField('attachment');
                 ?>
                 <?php if (!empty($this->item->attachment)) : ?>
                     <?php $attachmentFiles = array_values(array_filter((array) $this->item->attachment)); ?>
@@ -85,7 +98,9 @@ $toolsHelper = new ToolsHelper;
                     <?php endforeach; ?>
                     <input type="hidden" name="jform[attachment_hidden]" id="jform_attachment_hidden" value="<?php echo implode(',', $attachmentFiles); ?>" />
                 <?php endif; ?>
-                <?php //echo HTMLHelper::_('uitab.endTab'); ?>
+                <?php
+                echo HTMLHelper::_('uitab.endTab');
+                ?>
                 <div class="control-group">
                     <div class="controls">
 
@@ -94,7 +109,7 @@ $toolsHelper = new ToolsHelper;
                                 <span class="fas fa-check" aria-hidden="true"></span>
                                 <?php echo Text::_('Save & Close'); ?>
                             </button>
-                            <button type="submit" class="validate btn btn-success" name="save_continue" onclick="this.form.task.value='mailshotform.savecontinue';">
+                            <button type="submit" class="validate btn btn-success" name="save_continue" onclick="this.form.task.value = 'mailshotform.savecontinue';">
                                 <span class="fas fa-save" aria-hidden="true"></span>
                                 <?php echo Text::_('Save & Continue'); ?>
                             </button>
@@ -108,9 +123,10 @@ $toolsHelper = new ToolsHelper;
                     </div>
                 </div>
 
-                  <input type="hidden" name="option" value="com_ra_mailman"/>
-                  <input type="hidden" name="task" value="mailshotform.save"/>
-                  <?php echo HTMLHelper::_('form.token'); ?>
+                <input type="hidden" name="option" value="com_ra_mailman"/>
+                <input type="hidden" name="task" value="mailshotform.save"/>
+                <?php echo HTMLHelper::_('form.token'); ?>
             </form>
         <?php endif; ?>
 </div>
+

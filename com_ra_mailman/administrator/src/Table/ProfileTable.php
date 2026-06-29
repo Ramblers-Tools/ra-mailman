@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version    4.2.0
+ * @version    4.7.8
  * @package    com_ra_mailman
  * @author     Charlie Bigley <webmaster@bigley.me.uk>
  * @copyright  2023 Charlie Bigley
@@ -10,6 +10,7 @@
  * 04/11/24 CB use id derived from getIdentity instead of getUser
  * 12/02/25 CB don't use getIdentity
  * 17/02/25 CB reinstate parent::store
+ * 22/06/26 CB extra processing of subs etc when deleting a profile record
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Table;
@@ -82,6 +83,8 @@ class ProfileTable extends Table implements VersionableTableInterface, TaggableT
 
         $input = $app->input;
         $task = $input->getString('task', '');
+        // Ensure group code is upper case
+        $array['home_group'] = strtoupper($array['home_group']);
 
         if ($array['id'] == 0) {
             $array['created'] = Factory::getDate('now', Factory::getConfig()->get('offset'))->toSql(true);
@@ -104,6 +107,21 @@ class ProfileTable extends Table implements VersionableTableInterface, TaggableT
             }
         } else {
             $array['privacy_level'] = '3';
+        }
+
+        // Support for blank membershipNumber
+        if (isset($array['membershipNumber'])) {
+            if (($array['membershipNumber'] == '') OR ($array['membershipNumber'] == '0')) {
+                $array['membershipNumber'] = NULL;
+            }
+            if (!isset($array['memberType'])) {
+                $array['memberType'] = 'Member';
+            }
+            if (!isset($array['memberTerm'])) {
+                $array['memberTerm'] = 'Annual';
+            }
+        } else {
+            $array['membershipNumber'] = NULL;
         }
 
         // Support for checkbox field: contactviaemail
@@ -271,9 +289,16 @@ class ProfileTable extends Table implements VersionableTableInterface, TaggableT
      */
     public function delete($pk = null) {
         $this->load($pk);
+        $this->deleteLinkedRecords($pk);
         $result = parent::delete($pk);
 
         return $result;
+    }
+
+    private function deleteLinkedRecords($id) {
+        // Update membership of UserGroups as required
+        $toolsHelper = new ToolsHelper;
+        Factory::getApplication()->enqueueMessage("Deleting linked records for " . $id, 'info');
     }
 
 }

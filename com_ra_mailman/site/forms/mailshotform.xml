@@ -27,23 +27,69 @@
         description="id of the mailing list"
         required="false"
         readonly="true"
-        />    
-        <field
-            name="event_id"
-            type="event" 
-            label="Invitation list"
-            description="If selected, an invitation will be included to book on this list"
-            sql_select="id, title"     
-            sql_from="`#__ra_events`"
-            sql_where="bookable=1 "  
-            sql_order="title"
-            key_field="id"
-            value_field="title"
-        />     
+    />
+    <field
+        name="contact"
+        type="Contact"
+        label="Contact"
+        description="Contact name"
+    />    
+    <field
+        name="contact_id"
+        type="sql"
+        label="Normally, when a recipient replies to a Mailshot it will go the the Author of the
+        list, but you can select a different Contact"
+        query="
+            SELECT u.id AS value, c.name AS text
+            FROM #__users AS u
+            INNER JOIN #__contact_details AS c
+                ON c.user_id = u.id
+            UNION
+            SELECT 0, '--Select Contact --'
+            ORDER BY text"
+        key_field="value"
+        value_field="text"
+    /> 
+    <field
+        name="reply_to"
+        type="hidden"
+        label="Email"
+        description="Alternative recipient for the reply"
+        required="false"
+        readonly="true"
+        />
+    <field
+        name="invitation_preamble"
+        type="radio"
+        label="Do you want to include an invitation to a future bookable Event?"
+        description=""
+        classs="btn-group btn-group-yesno"
+        default="0"
+        >
+            <option value="1">JYES</option>
+            <option value="0">JNO</option>
+    </field>
+    <field name="no_bookings"
+        type="note"
+        label="No future bookable Events"
+    />
+    <field
+        name="event_id"
+        type="event"
+        label="Invitation list"
+        description="If selected, an invitation will be included to book on this list"
+        sql_select="id, title"
+        sql_from="`#__ra_events`"
+        sql_where="bookable=1 "
+        sql_order="title"
+        key_field="id"
+        value_field="title"
+        showon="invitation_preamble:1"
+    />
 <!--  AND DATEDIFF(event_date, CURRENT_DATE)<=0 -->
-    <field 
-        name="attachment" 
-        type="file" 
+    <field
+        name="attachment"
+        type="file"
         multiple="true"
         label="Attachment"
         description="Name of the data file on your computer"/>
@@ -64,3 +110,4 @@
     <field name="version_note" type="text" label="JGLOBAL_FIELD_VERSION_NOTE_LABEL" description="JGLOBAL_FIELD_VERSION_NOTE_DESC" class="inputbox" size="45" labelclass="control-label"/>
   </fieldset>
 </form>
+

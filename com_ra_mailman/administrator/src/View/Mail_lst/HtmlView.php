@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version    4.5.8
+ * @version    4.7.8
  * @package    com_ra_mailman
  * @author     Charlie Bigley <webmaster@bigley.me.uk>
  * @copyright  2023 Charlie Bigley
@@ -12,6 +12,7 @@
  * 13/04/25 CB don't show "Make Prime" when first creating
  * 01/06/25 CB Check that a subs record is present for the owner of the list
  * 14/11/25 CB warning if checked out
+ * 22/06/26 CB remove Copy button
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Mail_lst;
@@ -138,15 +139,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         if (!$checkedOut && ($canDo->get('core.edit') || ($canDo->get('core.create')))) {
             $toolbar->apply('mail_lst.apply', 'JTOOLBAR_APPLY');
             $toolbar->save('mail_lst.save', 'JTOOLBAR_SAVE');
-        }
-
-        if (!$checkedOut && ($canDo->get('core.create'))) {
-            ToolbarHelper::custom('mail_lst.save2new', 'save-new.png', 'save-new_f2.png', 'JTOOLBAR_SAVE_AND_NEW', false);
-        }
-
-        // If an existing item, can save to a copy.
-        if (!$isNew && $canDo->get('core.create')) {
-            ToolbarHelper::custom('mail_lst.save2copy', 'save-copy.png', 'save-copy_f2.png', 'JTOOLBAR_SAVE_AS_COPY', false);
         }
 
         if ($this->item->id > 0) {

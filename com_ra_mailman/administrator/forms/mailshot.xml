@@ -50,6 +50,30 @@
             default="" 
             />
         <field
+           name="contact_id"
+           type="sql"
+           label="Normally, when a recipient replies to a Mailshot it will go the the Author of the
+           list, but you can select a different Contact"
+           query="
+               SELECT u.id AS value, c.name AS text
+               FROM #__users AS u
+               INNER JOIN #__contact_details AS c
+                   ON c.user_id = u.id
+               UNION
+               SELECT 0, '--Select Contact --'
+               ORDER BY text"
+           key_field="value"
+           value_field="text"
+       />     
+       <field
+        name="reply_to"
+        type="text"
+        label="Email"
+        description="Alternative recipient for the reply"
+        required="false"
+        readonly="true"
+        />
+        <field
             name="event_id"
             type="event" 
             label="Invitation list"

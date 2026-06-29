@@ -9,13 +9,13 @@
 <extension type="component" version="4.0" method="upgrade">
     <name>RA Mailman</name>
     <element>com_ra_mailman</element>
-    <creationDate>25 May 2026</creationDate>
+    <creationDate>29 Jun 2026</creationDate>
     <copyright>Copyright (C) 2022. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
     <author>Charlie Bigley</author>
     <authorEmail>webmaster@bigley.me.uk</authorEmail>
     <authorUrl>https://docs.stokeandnewcastleramblers.org.uk</authorUrl>
-    <version>4.7.3</version>
+    <version>4.7.9</version>
     <description>Support for Mailing lists</description>
     <namespace path="src">Ramblers\Component\Ra_mailman</namespace>
     <scriptfile>script.php</scriptfile>
@@ -31,9 +31,7 @@
             <menu link="option=com_ra_tools&amp;view=dashboard">Dashboard</menu>
             <menu link="option=com_ra_mailman&amp;view=mail_lsts" view="mail_lsts" img="components/com_ra_tools/assets/images/view-16x16-walks.png" alt="Ramblers/mail lists">Mailing lists</menu>
             <menu link="option=com_ra_mailman&amp;view=mailshots" view="mailshots" img="components/com_ra_tools/assets/images/view-16x16-walks.png" alt="Ramblers/Mailshots">Mailshots</menu>
-            <menu link="option=com_ra_mailman&amp;view=subscriptions" view="subscriptions" img="components/com_ra_tools/assets/images/view-16x16-walks.png" alt="Ramblers/Subscriptions">Subscriptions</menu>
-            <menu link="option=com_ra_mailman&amp;view=profiles" view="profiles" img="components/com_ra_tools/assets/images/view-16x16-walks.png" alt="Ramblers/MailMan users">MailMan users</menu>
-            <menu link="option=com_ra_mailman&amp;view=dataload" view="dataload" img="components/com_ra_tools/assets/images/view-16x16-walks.png" alt="Ramblers/Import members">Import list of members</menu>
+            <menu link="option=com_ra_mailman&amp;view=sreports" view="subscriptions" img="components/com_ra_tools/assets/images/view-16x16-walks.png" alt="Ramblers/Subscriptions">Reports</menu>
         </submenu>
         <files folder="administrator">
             <folder>forms</folder>

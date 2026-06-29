@@ -1,6 +1,6 @@
 <?php
 /**
- * @version    4.5.5
+ * @version    4.7.9
  * @package    com_ra_mailman
  * @author     Charlie Bigley <webmaster@bigley.me.uk>
  * @copyright  2023 Charlie Bigley
@@ -8,6 +8,7 @@
  * 12/09/24 CB display existing attachments, add hidden field attachment_hidden
  * 22/10/24 CB use separate tab for publishing
  * 03/10/25 CB add field event_id
+ * 27/06/26 CB show fields contact_id and reply_to
  */
 // No direct access
 defined('_JEXEC') or die;
@@ -48,6 +49,10 @@ $self .= '&id=' . (int) $this->item->id . '&list_id=' . (int) $this->list_id;
                     if ($count > 0) {
                         echo $this->form->renderField('event_id');
                     }
+                }
+                echo $this->form->renderField('contact_id');
+                if ($toolsHelper->isSuperuser()) {
+                    echo $this->form->renderField('reply_to');
                 }
                 echo $this->form->renderField('attached_file');
 

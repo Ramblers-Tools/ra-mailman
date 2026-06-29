@@ -36,18 +36,17 @@ use Ramblers\Component\Ra_tools\Site\Helpers\SchemaHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\UserHelper;
 
-class SystemController extends FormController
-{
+class SystemController extends FormController {
 
     protected $back;
     protected $app;
     protected $toolsHelper;
 
     public function __construct(
-        $config = [],
-        MVCFactoryInterface $factory = null,
-        CMSApplication $app = null,
-        Input $input = null
+            $config = [],
+            MVCFactoryInterface $factory = null,
+            CMSApplication $app = null,
+            Input $input = null
     ) {
         parent::__construct($config, $factory, $app, $input);
 
@@ -176,42 +175,125 @@ class SystemController extends FormController
         $this->setRedirect('/administrator/index.php?option=com_ra_mailman&task=reports.showDue');
     }
 
-    public function checkSchema() {
+    public function checkSchema() { //administrator/index.php?option=com_ra_mailman&task=system.checkSchema
         $toolsHelper = new ToolsHelper;
         if (!$toolsHelper->isSuperuser()) {
             return;
         }
         $helper = New SchemaHelper;
-// table ra_import_reports
-        $details = '(
-            `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-            `date_phase1` DATETIME NOT NULL ,
-            `date_completed` DATETIME NULL ,
-            `method_id` int(11) NOT NULL,
-            `list_id` int(11) NOT NULL,
-            `user_id` int(11) NOT NULL,
-            `num_records` INT  NOT NULL DEFAULT "0",
-            `num_errors` INT  NOT NULL DEFAULT "0",
-            `num_users` INT  NOT NULL DEFAULT "0",
-            `num_subs` INT  NOT NULL DEFAULT "0",
-            `num_lapsed` INT  NOT NULL DEFAULT "0",
-            `ip_address` VARCHAR(255)  NULL  DEFAULT "",
-            `error_report` MEDIUMTEXT  DEFAULT NULL,
-            `new_users` MEDIUMTEXT DEFAULT NULL,
-            `new_subs` MEDIUMTEXT DEFAULT NULL,
-            `lapsed_members` MEDIUMTEXT DEFAULT NULL,
-            `input_file` VARCHAR(255) NOT NULL,
-            `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `created_by` INT NULL DEFAULT "0",
-            `modified` DATETIME NULL DEFAULT NULL,
-            `modified_by` INT NULL DEFAULT "0",
-            `checked_out_time` DATETIME NULL  DEFAULT NULL ,
-            `checked_out` INT NULL,
-            `state` TINYINT(1)  NULL  DEFAULT 1,
-            PRIMARY KEY (`id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;';
-        $helper->checkTable('ra_import_reports', $details);
-//        $helper->checkColumn('ra_events', 'max_bookings', 'A', 'INT NOT NULL DEFAULT "1" AFTER bookable; ');
+        /*
+          // table ra_import_reports
+          $details = '(
+          `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+          `date_phase1` DATETIME NOT NULL ,
+          `date_completed` DATETIME NULL ,
+          `method_id` int(11) NOT NULL,
+          `list_id` int(11) NOT NULL,
+          `user_id` int(11) NOT NULL,
+          `num_records` INT  NOT NULL DEFAULT "0",
+          `num_errors` INT  NOT NULL DEFAULT "0",
+          `num_users` INT  NOT NULL DEFAULT "0",
+          `num_subs` INT  NOT NULL DEFAULT "0",
+          `num_lapsed` INT  NOT NULL DEFAULT "0",
+          `ip_address` VARCHAR(255)  NULL  DEFAULT "",
+          `error_report` MEDIUMTEXT  DEFAULT NULL,
+          `new_users` MEDIUMTEXT DEFAULT NULL,
+          `new_subs` MEDIUMTEXT DEFAULT NULL,
+          `lapsed_members` MEDIUMTEXT DEFAULT NULL,
+          `input_file` VARCHAR(255) NOT NULL,
+          `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `created_by` INT NULL DEFAULT "0",
+          `modified` DATETIME NULL DEFAULT NULL,
+          `modified_by` INT NULL DEFAULT "0",
+          `checked_out_time` DATETIME NULL  DEFAULT NULL ,
+          `checked_out` INT NULL,
+          `state` TINYINT(1)  NULL  DEFAULT 1,
+          PRIMARY KEY (`id`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;';
+          $helper->checkTable('ra_import_reports', $details);
+         */
+        // UPDATE `j5_ra_profiles` set checked_out_time = NULL WHERE `checked_out_time`IS NOT NULL
+        // ALTER TABLE `j5_ra_profiles` DROP PRIMARY KEY
+        // ALTER TABLE `j5_ra_profiles` CHANGE `member_id` `member_id` INT NULL DEFAULT NULL AUTO_INCREMENT, add PRIMARY KEY (`member_id`);        
+        // UPDATE `j5_ra_profiles` set checked_out_time = NULL WHERE `checked_out_time`IS NOT NULL
+        // ALTER TABLE `j5_ra_profiles` DROP PRIMARY KEY
+        // ALTER TABLE `j5_ra_profiles` CHANGE `member_id` `member_id` INT NULL DEFAULT NULL AUTO_INCREMENT, add PRIMARY KEY (`member_id`);     
+         
+        $helper->checkColumn('ra_profiles', 'member_id', 'A', 'INT NULL AFTER id; ');
+        $helper->checkColumn('ra_profiles', 'salesforceId', 'A', 'VARCHAR(20) AFTER member_id; ');
+        $helper->checkColumn('ra_profiles', 'membershipNumber', 'A', 'INT NULL AFTER preferred_name; ');
+        $helper->checkColumn('ra_profiles', 'memberType', 'A', 'VARCHAR(9) AFTER membershipNumber; ');
+        $helper->checkColumn('ra_profiles', 'memberTerm', 'A', 'VARCHAR(5) AFTER memberType; ');
+        $helper->checkColumn('ra_profiles', 'memberStatus', 'A', 'VARCHAR(15) AFTER memberTerm; ');
+        $helper->checkColumn('ra_profiles', 'membershipArrangement', 'A', 'VARCHAR(10) AFTER memberStatus; ');
+        $helper->checkColumn('ra_profiles', 'jointWith', 'A', 'INT NULL AFTER membershipArrangement; ');
+        $helper->checkColumn('ra_profiles', 'title', 'A', 'VARCHAR(6) AFTER jointWith; ');
+        $helper->checkColumn('ra_profiles', 'initials', 'A', 'VARCHAR(6) AFTER title; ');
+        $helper->checkColumn('ra_profiles', 'firstName', 'A', 'VARCHAR(100) AFTER initials; ');
+        $helper->checkColumn('ra_profiles', 'lastName', 'A', 'VARCHAR(100) AFTER firstName; ');
+        $helper->checkColumn('ra_profiles', 'address1', 'A', 'VARCHAR(100) AFTER lastName; ');
+        $helper->checkColumn('ra_profiles', 'address2', 'A', 'VARCHAR(100) AFTER address1; ');
+        $helper->checkColumn('ra_profiles', 'address3', 'A', 'VARCHAR(100) AFTER address2; ');
+        $helper->checkColumn('ra_profiles', 'town', 'A', 'VARCHAR(100) AFTER address3; ');
+        $helper->checkColumn('ra_profiles', 'county', 'A', 'VARCHAR(100) AFTER town; ');
+        $helper->checkColumn('ra_profiles', 'country', 'A', 'VARCHAR(100) AFTER county; ');
+        $helper->checkColumn('ra_profiles', 'postcode', 'A', 'VARCHAR(8) AFTER country; ');
+        $helper->checkColumn('ra_profiles', 'email', 'A', 'VARCHAR(150) AFTER postcode; ');
+        $helper->checkColumn('ra_profiles', 'landlineTelephone', 'A', 'VARCHAR(20) AFTER email; ');
+        $helper->checkColumn('ra_profiles', 'mobileNumber', 'A', 'VARCHAR(100) AFTER landlineTelephone; ');
+        $helper->checkColumn('ra_profiles', 'membershipExpiryDate', 'A', 'DATE NULL AFTER mobileNumber; ');
+        $helper->checkColumn('ra_profiles', 'ramblersJoinedDate', 'A', 'DATE NULL AFTER membershipExpiryDate; ');
+        $helper->checkColumn('ra_profiles', 'areaJoinedDate', 'A', 'DATE NULL AFTER ramblersJoinedDate; ');
+        $helper->checkColumn('ra_profiles', 'groupJoinedDate', 'A', 'DATE NULL AFTER areaJoinedDate; ');
+        $helper->checkColumn('ra_profiles', 'volunteer', 'A', 'CHAR(1) AFTER groupJoinedDate; ');
+        $helper->checkColumn('ra_profiles', 'emailMarketingConsent', 'A', 'CHAR(1) AFTER volunteer; ');
+        $helper->checkColumn('ra_profiles', 'areaMarketingConsent', 'A', 'CHAR(1) AFTER emailMarketingConsent; ');
+        $helper->checkColumn('ra_profiles', 'groupMarketingConsent', 'A', 'CHAR(1) AFTER areaMarketingConsent; ');
+        $helper->checkColumn('ra_profiles', 'otherMarketingConsent', 'A', 'CHAR(1) AFTER groupMarketingConsent; ');
+        $helper->checkColumn('ra_profiles', 'emailPermissionLastUpdated', 'A', 'DATE NULL AFTER otherMarketingConsent; ');
+        $helper->checkColumn('ra_profiles', 'postDirectMarketing', 'A', 'CHAR(1) AFTER emailPermissionLastUpdated; ');
+        $helper->checkColumn('ra_profiles', 'postPermissionLastUpdated', 'A', 'DATE NULL AFTER postDirectMarketing; ');
+        $helper->checkColumn('ra_profiles', 'telephoneDirectMarketing', 'A', 'CHAR(1) AFTER postPermissionLastUpdated; ');
+        $helper->checkColumn('ra_profiles', 'telephonePermissionLastUpdated', 'A', 'DATE NULL AFTER telephoneDirectMarketing; ');
+        $helper->checkColumn('ra_profiles', 'walkProgrammeOptOut', 'A', 'CHAR(1) AFTER telephonePermissionLastUpdated; ');
+        $helper->checkColumn('ra_profiles', 'affiliateMemberPrimaryGroup', 'A', 'VARCHAR(50) AFTER walkProgrammeOptOut; ');
+        $helper->checkColumn('ra_profiles', 'security_token', 'D');
+        $helper->checkColumn('ra_profiles', 'subscribe', 'D');
+        $helper->checkColumn('ra_profiles', 'software_version', 'D');
+        $helper->checkColumn('ra_profiles', 'acknowledge_follow', 'D');
+        $helper->checkColumn('ra_profiles', 'privacy_level', 'D');
+        $helper->checkColumn('ra_profiles', 'mobile', 'D');
+        $helper->checkColumn('ra_profiles', 'contactviatextmessage', 'D');
+        $helper->checkColumn('ra_profiles', 'contactviaemail', 'D');
+        $helper->checkColumn('ra_profiles', 'min_miles', 'D');
+        $helper->checkColumn('ra_profiles', 'max_miles', 'D');
+        $helper->checkColumn('ra_profiles', 'max_radius', 'D');
+        $helper->checkColumn('ra_profiles', 'contactviatextmessage', 'D');
+        $helper->checkColumn('ra_profiles', 'max_radius', 'D');
+        $helper->checkColumn('ra_profiles', 'notify_joiners', 'D');
+        $helper->checkColumn('ra_profiles', 'areaName', 'D');
+        $helper->checkColumn('ra_profiles', 'ordering', 'D');
+
+        $helper->checkColumn('ra_profiles', 'home_group', 'U', 'VARCHAR(4); ');
+        $helper->checkColumn('ra_profiles', 'preferred_name', 'U', 'VARCHAR(100); ');
+        $helper->checkColumn('ra_profiles', 'email', 'U', 'VARCHAR(100); ');
+        $helper->checkColumn('ra_profiles', 'jointWith', 'U', 'INT NULL; ');
+        $helper->checkColumn('ra_profiles', 'town', 'U', 'VARCHAR(100); ');
+        $helper->checkColumn('ra_profiles', 'county', 'U', 'VARCHAR(100); ');
+        $helper->checkColumn('ra_profiles', 'country', 'U', 'VARCHAR(100); ');
+        $helper->checkColumn('ra_profiles', 'email', 'U', 'VARCHAR(100); ');
+        $helper->checkColumn('ra_profiles', 'volunteer', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'volunteer', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'emailMarketingConsent', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'areaMarketingConsent', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'groupMarketingConsent', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'otherMarketingConsent', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'postDirectMarketing', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'telephoneDirectMarketing', 'U', 'CHAR(1); ');
+        $helper->checkColumn('ra_profiles', 'walkProgrammeOptOut', 'U', 'CHAR(1); ');
+        
+
+
         $target = 'administrator/index.php?option=com_ra_tools&view=dashboard';
         echo $toolsHelper->backButton($target);
     }
@@ -327,7 +409,7 @@ class SystemController extends FormController
         $db->execute();
     }
 
-    public function fixGroups(){
+    public function fixGroups() {
         $sql = 'ALTER TABLE `#__ra_groups` CHANGE `website` `website` VARCHAR(250)';
         echo $sql . '<br>';
         $this->toolsHelper->executeCommand($sql);

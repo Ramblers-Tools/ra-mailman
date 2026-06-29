@@ -220,12 +220,11 @@ class UserHelper {
 //      should not be an existing record, but if there is, update it anyway
 
 
-
         $sql = 'SELECT id FROM #__ra_profiles WHERE id=' . $this->user_id;
         $record_exists = $this->toolshelper->getValue($sql);
         $date = Factory::getDate('now', Factory::getConfig()->get('offset'))->toSql(true);
-        if ($record_exists > 0) {
-            $user = Factory::getApplication()->getSession()->get('user');
+        $user = Factory::getApplication()->getSession()->get('user');
+        if ($record_exists) {
             $sql = 'UPDATE #__ra_profiles SET ';
             $sql .= 'home_group=' . $db->quote($this->group_code) . ', ';
             $sql .= 'preferred_name=' . $db->quote($this->preferred_name) . ', ';
@@ -281,14 +280,14 @@ class UserHelper {
     }
 
     public function createProfile_3($user_id, $group_code) {
-// Fails to find Instance of table
+// Fails to find Instance of table UPDATED 22/06/26 with coirrect reference to the table
         $data = array(
             'id' => $user_id,
             'home_group' => $db->quote($group_code),
             'groups_to_follow' => $db->quote($group_code),
             'preferred_name' => $db->quote($this->preferred_name),
         );
-        $table = Table::getInstance('Profile', 'Table');
+        $table = $this->getTable('Profile', 'Ramblers\\Component\\Ra_mailman\\Administrator\\Table\\');
         if (!$table->bind($data)) {
             echo 'could not bind<br>';
             return false;

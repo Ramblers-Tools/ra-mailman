@@ -32,56 +32,16 @@
                 description="Used when creating links in emails for Unsubscribe, Renewals etc" 
                 required="true"
                 hint="https://xxxramblers.org.uk"/>
-        <field name="max_online_send"
-                type="text"
-                filter="int"
-                label="Max Emails to send on-line" 
-                description="Maximum number of Emails to send immediately" 
-                required="true"
-                default="100"/>    
-        <field name="max_emails"
-                type="text"
-                filter="int"
-                label="Max Emails" 
-                description="Maximum number of Emails to send at one time in batch mode" 
-                required="true"
-                default="100"/>    
-            <field name="mailshot_send_message" 
-               filter="safehtml" 
-               type="textarea" 
-               default="Mailshot has been logged for dispatch and will be processed shortly" 
-               label="Send message" 
-               required="true"
-               description="Text to be shown when waiting for off-line processing" />
-    </fieldset>
-    <fieldset name="dataload" label="Dataload">
-        <field name="max_errors"
-                type="text"
-                filter="int"
-                label="Max Errors" 
-                description="Maximum error when loading Users from a file" 
-                required="true"
-                default="50"/> 
         <field
-            name="abbreviate_name"
+            name="draft_mailshot"
             type="radio"
-            label="Abbreviate name:"
-            description="Action to be taken when importing members from Insight file"
-            default="N"
+            label="Send draft email:"
+            description="Send draft mailshot to the editor after saving"
+            default="Y"
             >
-            <option value="N">Create preferred name with Surname in full</option>
-            <option value="Y">Create preferred name with first initial of Surname</option>
+            <option value="Y">Yes</option>
+            <option value="N">No</option>
         </field>  
-      
-        <field name="email_domain"
-                type="text"
-                label="Email domain" 
-                description="When Users are blocked, they will be given a dummy email address in this domain " 
-                default="ramblers.org.uk"
-                showon="members_leave:B"
-                hint="ramblers.org.uk"/>
-
-
     </fieldset>
     <fieldset name="colours" label="Colours">
         <field
@@ -165,7 +125,58 @@
                description="User to be notified when new User signs up" 
                hint="webmaster@....."/>
     </fieldset>
+    <fieldset name="dataload" label="Dataload">
+        <field name="max_errors"
+                type="text"
+                filter="int"
+                label="Max Errors" 
+                description="Maximum error when loading Users from a file" 
+                required="true"
+                default="50"/> 
+        <field
+            name="abbreviate_name"
+            type="radio"
+            label="Abbreviate name:"
+            description="Action to be taken when importing members from Insight file"
+            default="N"
+            >
+            <option value="N">Create preferred name with Surname in full</option>
+            <option value="Y">Create preferred name with first initial of Surname</option>
+        </field>  
+      
+        <field name="email_domain"
+                type="text"
+                label="Email domain" 
+                description="When Users are blocked, they will be given a dummy email address in this domain " 
+                default="ramblers.org.uk"
+                showon="members_leave:B"
+                hint="ramblers.org.uk"/>
+
+
+    </fieldset> 
     <fieldset label="Batch mode" name="batch_mode">
+        <field name="max_online_send"
+                type="text"
+                filter="int"
+                label="Max Emails to send on-line" 
+                description="Maximum number of Emails to send immediately" 
+                required="true"
+                default="100"/>    
+        <field name="max_emails"
+                type="text"
+                filter="int"
+                label="Max Emails" 
+                description="Maximum number of Emails to send at one time in batch mode" 
+                required="true"
+                default="100"/>    
+            <field name="mailshot_send_message" 
+               filter="safehtml" 
+               type="textarea" 
+               default="Mailshot has been logged for dispatch and will be processed shortly" 
+               label="Send message" 
+               required="true"
+               description="Text to be shown when waiting for off-line processing" />
+
         <field name="email_detail"
                maxlength="255" 
                filter="safehtml" 

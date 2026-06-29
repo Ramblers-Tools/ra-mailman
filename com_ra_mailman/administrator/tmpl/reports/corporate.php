@@ -1,11 +1,12 @@
 <?php
 /**
- * @version     4.5.6
+ * @version     4.7.5
  * @package     com_ra_mailman
  * @copyright   Copyright (C) 2020. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  * @author      Charlie Bigley <webmaster@bigley.me.uk> - https://www.developer-url.com
  * 15/04/26 CB created
+ * 01/06/26 CB remove members by Group (in membership reports)
  */
 defined('_JEXEC') or die;
 
@@ -53,11 +54,9 @@ if ($this->user_id == 1) {
 }
 */
 $reports = [
-    'Members by Group' => 'administrator/index.php?option=com_ra_members&task=reports.membersByGroup',
     'Mailshots by Month' => 'administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth',
     'Recent Mailshots' => 'administrator/index.php?option=com_ra_mailman&task=reports.recentMailshots',
-    'Subscriptions summary' => 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary',
-    
+    'Subscriptions summary' => 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary',  
     'Preview Email' => 'administrator/index.php?option=com_ra_mailman&task=reports.emailPreview',
    
 //    'Duplicate Recipients' => 'administrator/index.php?option=com_ra_mailman&task=reports.duplicateRecipients',

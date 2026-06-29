@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @version    4.6.6
+ * @version    4.7.9
  * @package    com_ra_mailman
  * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
@@ -18,6 +18,8 @@
  * 28/03/26 CB Analysis of members by group
  * 13/04/26 CB Users with a Profile
  * 22/05/26 CB recentMailshots
+ * 07/06/26 CB Delete subscriptions if no matching profile
+ * 10/06/26 CB checkDatabase: show membershipNumber, delete debug messages
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -59,55 +61,21 @@ class ReportsController extends FormController {
         $this->breadcrumbs = $this->toolsHelper->buildLink('administrator/index.php', 'Dashboard');
         $this->breadcrumbs .= '>' . $this->toolsHelper->buildLink('administrator/index.php?option=com_ra_tools&view=dashboard', 'RA Dashboard');
         $this->breadcrumbs .= '>' . $this->toolsHelper->buildLink($this->back, 'MailMan Reports');
-        $this->scope = $this->app->input->getWord('scope', '');  
-        if ($this->scope == ''){ 
+        $this->scope = $this->app->input->getWord('scope', '');
+        if ($this->scope == '') {
             $this->subheading = 'All records';
         } else {
             $code = $this->mailHelper->getDefaultGroup();
-            if ($this->scope == 'A'){ 
-                $code = substr($code,0,2);
+            if ($this->scope == 'A') {
+                $code = substr($code, 0, 2);
             }
-            
+
             $sql = 'SELECT id, name ';
             $sql .= 'FROM #__ra_organisations ';
             $sql .= 'WHERE code="' . $code . '"';
-            $item = $this->toolsHelper->getItem($sql);  
-            $this->subheading =  $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');    
-        }              
-    }
-
-    public function analyseListMembership(){
-        ToolBarHelper::title($this->prefix . 'Analysis of members by group');
-        echo $this->breadcrumbs;
-        $header = 'Status,Group,Count';
-
-        
-        $sql = 'SELECT l.`group_code`, l.`name`';
-        $sql .= 'FROM `j5_ra_mail_lists` AS l'; 
-        $sql .= 'WHERE l.`group_code` = l.`group_primary`';
-        
-        $lists = $this->toolsHelper->getRows($sql);
-        foreach($lists as $list){
-            echo '<h4>' . $list->group->code . ': ' . $list->name . '</h4>';
-            $table = new ToolsTable();
-            $table->add_header($header);    
-                        
-            $sql = 'SELECT l.state, p.home_group, COUNT(l.id) As `Cnt`'; 
-            $sql .= 'FROM `j5_ra_mail_lists` AS l ';
-            $sql .= 'INNER JOIN `j5_ra_mail_subscriptions` AS s ON s.list_id = l.id ';
-            $sql .= 'INNER JOIN `j5_ra_profiles` AS p ON p.id = s.user_id ';
-            $sql .= 'WHERE  l.`id`=' . $list->id;
-            $sql .= ' GROUP BY l.state, l.`group_code`,p.home_group'; 
-            $rows = $this->toolsHelper->getRows($sql);  
-            foreach ($rows as $row){
-                $table->add_item($row->state);
-                $table->add_item($row->home_group);
-                $table->add_item($row->Cnt);   
-                $table->generate_line();  
-            }
-            $table->generate_table();
+            $item = $this->toolsHelper->getItem($sql);
+            $this->subheading = $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');
         }
-        echo $this->toolsHelper->backButton($this->back);
     }
 
     public function blockedUsers() {
@@ -146,7 +114,7 @@ class ReportsController extends FormController {
         echo $this->toolsHelper->backButton($this->back);
     }
 
-       public function bookableEvents() {
+    public function bookableEvents() {
         ToolBarHelper::title('Future bookable events' . $year);
         echo $this->breadcrumbs;
         $sql = 'SELECT COUNT(id) FROM `#__ra_events` ';
@@ -156,7 +124,7 @@ class ReportsController extends FormController {
         if ($count = 0) {
             echo 'No Events found<br>';
         } else {
-            //        echo '<h4>Events that have been imported</h4>';
+//        echo '<h4>Events that have been imported</h4>';
             $sql = 'SELECT e.id, e.event_date,e.title AS `event`,  ';
             $sql .= 'e.num_bookings, e.max_bookings, e.location, c.name, t.description ';
             $sql .= 'FROM `#__ra_events` AS e ';
@@ -188,33 +156,33 @@ class ReportsController extends FormController {
     }
 
     private function breadcrumbsExtra($label, $report) {
-        // generates a link to be added to the standard breadcrumbs
+// generates a link to be added to the standard breadcrumbs
         $target = 'administrator/index.php?option=com_ra_mailman&task=reports.' . $report;
         return '>' . $this->toolsHelper->buildLink($target, $label);
     }
 
-    private function buildCriterion($operator,$field_name, $code = ''){
-    // If scope is blank, no additional criterion is required
-        if ($this->scope == ''){ 
+    private function buildCriterion($operator, $field_name, $code = '') {
+// If scope is blank, no additional criterion is required
+        if ($this->scope == '') {
             $this->subheading = 'All records';
             return '';
         }
-        if ($code == ''){
+        if ($code == '') {
             $code = $this->mailHelper->getDefaultGroup();
         }
         $sql = $operator . ' (' . $field_name;
-        if ($this->scope == 'A'){ 
-            $area_code = substr($code,0,2);
-            $sql .=  ' LIKE "' . $area_code . '%") ';
-        } else { 
+        if ($this->scope == 'A') {
+            $area_code = substr($code, 0, 2);
+            $sql .= ' LIKE "' . $area_code . '%") ';
+        } else {
             $sql .= '="' . $code . '") ';
         }
         $sql_lookup = 'SELECT id, name ';
         $sql_lookup .= 'FROM #__ra_organisations ';
         $sql_lookup .= 'WHERE code="' . $code . '"';
-        $item = $this->toolsHelper->getItem($sql_lookup);  
-        $this->subheading =  $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');        
- //       echo $sql . '<br>';
+        $item = $this->toolsHelper->getItem($sql_lookup);
+        $this->subheading = $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');
+//       echo $sql . '<br>';
         return $sql;
     }
 
@@ -271,53 +239,91 @@ class ReportsController extends FormController {
                 foreach ($rows as $row) {
                     $sql = 'DELETE FROM  #__ra_mail_subscriptions_audit ';
                     $sql .= 'WHERE object_id=' . $row->id;
-                    //                   echo $sql . '<br>';
+//                   echo $sql . '<br>';
                     $this->toolsHelper->executeCommand($sql);
                     $sql = 'DELETE FROM #__ra_mail_subscriptions WHERE id=' . $row->id;
-                    //                   echo $sql . '<br>';
+//                   echo $sql . '<br>';
                     $this->toolsHelper->executeCommand($sql);
                 }
                 echo '... records deleted<br>';
             }
         }
+//  See if any Subscription without a profile
+        $sql = "SELECT count(*) FROM #__ra_mail_subscriptions AS ms ";
+        $sql .= "LEFT JOIN #__ra_profiles as p ON p.id = ms.user_id ";
+        $sql .= "WHERE p.id IS NULL ";
+        $count = $this->toolsHelper->getValue($sql);
+        if ($count == 0) {
+            echo 'All subscriptions have a matching profile<br>';
+        } else {
+            echo '<h4>' . $count . ' Subscriptions found, no matching Profile</h4>';
 
+            if ($this->toolsHelper->isSuperuser()) {
+                $sql = 'SELECT ms.id ';
+                $sql .= 'FROM #__ra_mail_subscriptions AS ms ';
+                $sql .= 'LEFT JOIN #__ra_profiles as p ON p.id = ms.user_id ';
+                $sql .= 'WHERE p.id IS NULL ';
+                $this->toolsHelper->getRows($sql);
+                $rows = $this->toolsHelper->getRows($sql);
+                foreach ($rows as $row) {
+                    $sql = 'DELETE FROM  #__ra_mail_subscriptions_audit ';
+                    $sql .= 'WHERE object_id=' . $row->id;
+//                   echo $sql . '<br>';
+                    $this->toolsHelper->executeCommand($sql);
+                    $sql = 'DELETE FROM #__ra_mail_subscriptions WHERE id=' . $row->id;
+//                   echo $sql . '<br>';
+                    $this->toolsHelper->executeCommand($sql);
+                }
+                echo '... records deleted<br>';
+            }
+        }
+//      If com_ra_members is present, profiles may be present without an email/User record
 //  See if any Profiles without a User
         $sql = "SELECT count(*) FROM #__ra_profiles AS p ";
         $sql .= "LEFT JOIN `#__users` as u on u.id = p.id ";
         $sql .= "WHERE u.id IS NULL ";
-        echo $sql . '<br>';
+//        echo $sql . '<br>';
         $count = $this->toolsHelper->getValue($sql);
         if ($count == 0) {
             echo 'All profiles have a matching User<br>';
         } else {
-            echo '<h4>Users not found, Profiles still present<b/h4>';
-            $sql = "SELECT p.id, p.home_group, p.preferred_name, p.created ";
+            echo $count . ' Unmatched users found<br>';
+
+            echo '<h4>Users not found, Profiles present</h4>';
+            $sql = "SELECT p.member_id, p.home_group, p.membershipNumber, p.preferred_name,p.created ";
             $sql .= "FROM #__ra_profiles AS p ";
-            $sql .= "LEFT JOIN `#__users` as u on u.id = p.id ";
-            $sql .= "WHERE u.id IS NULL ";
-            $sql .= "order by p.id";
+            $sql .= 'LEFT JOIN #__users AS u ON u.id = p.id ';
+            $sql .= 'WHERE u.id IS NULL AND p.membershipNumber IS NULL ';
+            $sql .= 'ORDER BY p.membershipNumber, p.home_group, p.preferred_name';
             $rows = $this->toolsHelper->getRows($sql);
             $table = new ToolsTable();
-            $table->add_header("ID,Group,Preferred Name,Created");
+            $table->add_header("Group,Member No, Preferred Name,Created,Member id,Action");
 
             foreach ($rows as $row) {
-                $table->add_item($row->id);
                 $table->add_item($row->home_group);
+                $table->add_item($row->membershipNumber);
                 $table->add_item($row->preferred_name);
                 $table->add_item($row->created);
+                $table->add_item($row->member_id);
+// See if a matching user can be found
+                $sql_lookup = 'SELECT id from #__users WHERE name=' . $this->db->quote($row->preferred_name);
+                $user_id = $this->toolsHelper->getValue($sql_lookup);
+                if ($user_id) {
+                    $sql_update = 'UPDATE #__ra_profiles SET id=' . $user_id;
+                    $sql_update .= ' WHERE preferred_name=' . $this->db->quote($row->preferred_name);
+//                    $this->toolsHelper->executeCommand($sql_update);
+                    $table->add_item($sql_update . ' ' . $user_id);
+                }
                 $table->generate_line();
             }
             $table->generate_table();
-            if ($this->toolsHelper->isSuperuser()) {
-                $target = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles&mode=P';
-                echo $this->toolsHelper->buildButton($target, 'Purge All', false, 'red');
-            }
+            echo $this->toolsHelper->rows . ' records found<br>';
         }
-//  See if any Users without a Profile  
+//  See if any Users without a Profile
         $sql = "SELECT count(*) FROM #__users AS u ";
         $sql .= "LEFT JOIN `#__ra_profiles` as p on p.id = u.id ";
         $sql .= "WHERE p.id IS NULL ";
-        echo $sql . '<br>';
+//        echo $sql . '<br>';
         $count = $this->toolsHelper->getValue($sql);
         if ($count == 0) {
             echo 'All users have a matching Profile<br>';
@@ -329,8 +335,8 @@ class ReportsController extends FormController {
             $sql .= "WHERE p.id IS NULL ";
             $sql .= "order by u.id";
             $rows = $this->toolsHelper->getRows($sql);
-            $objTable = new ToolsTable();
-            $objTable->add_header("ID,Name,Email,Registered,Last Visit");
+            $table = new ToolsTable();
+            $table->add_header("ID,Name,Email,Registered,Last Visit");
 
             foreach ($rows as $row) {
                 $table->add_item($row->id);
@@ -340,11 +346,12 @@ class ReportsController extends FormController {
                 $table->generate_line();
             }
             $table->generate_table();
-            if ($this->toolsHelper->isSuperuser()) {
-                $target = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles&mode=P';
-                echo $this->toolsHelper->buildButton($target, 'Purge All', false, 'red') . '<br>';
-            }
-        }        
+            echo $this->toolsHelper->rows . ' records found<br>';
+//            if ($this->toolsHelper->isSuperuser()) {
+//                $target = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles&mode=P';
+//                echo $this->toolsHelper->buildButton($target, 'Purge All', false, 'red') . '<br>';
+//            }
+        }
 //  See if any Profiles with user_id =0
         $sql = 'SELECT count(*) FROM #__ra_profiles ';
         $sql .= 'WHERE id =0 ';
@@ -369,7 +376,7 @@ class ReportsController extends FormController {
             $table->generate_table();
         }
 
-        //Find any Users without a Preferred Name
+// Find any Users without a Preferred Name
 
         $sql = 'SELECT u.id, u.name, u.email, u.registerDate, u.lastvisitDate ';
         $sql .= 'FROM `#__users` as u ';
@@ -397,7 +404,7 @@ class ReportsController extends FormController {
             echo 'All profile records have a value for Preferred Name<br>';
         }
 
-        // Check for Profiles with duplicated name
+// Check for Profiles with duplicated name
 
         $sql = 'SELECT home_group, preferred_name, count(id) ';
         $sql .= 'FROM #__ra_profiles GROUP BY home_group, preferred_name ';
@@ -412,10 +419,10 @@ class ReportsController extends FormController {
         } else {
             echo '<h4>Profile records with duplicated names</h4>';
             $table = new ToolsTable();
-            $table->add_header('id,Group,Preferred name,Real name,Email');
+            $table->add_header('id,Member id, Membership No,Group,Preferred name,Real name,Email');
             foreach ($rows as $row) {
 
-                $sql_user = 'SELECT p.id, u.name, u.email ';
+                $sql_user = 'SELECT p.id, p.member_id, p.membershipNumber, u.name, u.email ';
                 $sql_user .= 'FROM #__ra_profiles AS p ';
                 $sql_user .= 'LEFT JOIN #__users AS u ON u.id = p.id ';
                 $sql_user .= 'WHERE p.preferred_name="' . $row->preferred_name . '"';
@@ -423,6 +430,8 @@ class ReportsController extends FormController {
                 $users = $this->toolsHelper->getRows($sql_user);
                 foreach ($users as $user) {
                     $table->add_item($user->id);
+                    $table->add_item($row->member_id);
+                    $table->add_item($row->membershipNumber);
                     $table->add_item($row->home_group);
                     $table->add_item($row->preferred_name);
                     $table->add_item($user->name);
@@ -434,7 +443,7 @@ class ReportsController extends FormController {
             echo '<p style="color:red">Please edit the User records and change the name</p>';
         }
 
-        //Find any Users set to receive system emails
+//Find any Users set to receive system emails
 
         $sql = 'SELECT u.id, u.name, u.email, u.registerDate, u.lastvisitDate ';
         $sql .= 'FROM `#__users` as u ';
@@ -608,7 +617,7 @@ class ReportsController extends FormController {
     public function emailPreview() {
         ToolBarHelper::title('Email preview');
         echo $this->breadcrumbs;
-        echo '<h4>Scope '  . $this->subheading . '</h4>';    
+        echo '<h4>Scope ' . $this->subheading . '</h4>';
         $setup = $this->mailHelper->getEmailSetup();
         $params = ComponentHelper::getParams('com_ra_mailman');
 
@@ -617,7 +626,7 @@ class ReportsController extends FormController {
         $body = '<div style="background: ' . $setup->colour_body;
         $body .= '; padding-top: 10px;  padding-bottom: 10px; ">';
 
-        // Lookup the most recent mailshot
+// Lookup the most recent mailshot
         $sql = 'SELECT body FROM #__ra_mail_shots ';
         $sql .= 'ORDER BY created DESC ';
         $sql .= 'LIMIT 1';
@@ -633,7 +642,7 @@ class ReportsController extends FormController {
 // Footer comprises the footer from the list, plus the owners email address, plus the component footer
         $footer = '<div style="background: ' . $setup->colour_footer;
         $footer .= '; border-radius: 5%; padding: 10px;">';
-        // Find a list footer
+// Find a list footer
         $sql = 'SELECT footer FROM #__ra_mail_lists ';
         $sql .= 'WHERE group_primary IS NOT NULL ';
         $sql .= 'ORDER BY id DESC LIMIT 1';
@@ -703,19 +712,25 @@ class ReportsController extends FormController {
         echo 'Firstly the colours from the 2022 redesign, followed by the previous colour palette.<br>';
         $objTable = new ToolsTable;
         $header = 'Colour';
-        for ($s = 0; $s < 5; $s++) {
+        for ($s = 0;
+                $s < 5;
+                $s++) {
             $header .= ',' . $saturation[$s];
         }
         $objTable->add_header($header);
 
-        for ($i = 0; $i < count($names); $i++) {
+        for ($i = 0;
+                $i < count($names);
+                $i++) {
 
             $objTable->add_item($names[$i]);
-            //    echo $names[$i] . '<br>';
-            for ($s = 0; $s < 5; $s++) {
+//    echo $names[$i] . '<br>';
+            for ($s = 0;
+                    $s < 5;
+                    $s++) {
                 $rgba = '(' . $colours[$i] . ',' . $saturation[$s] . ')';
                 $tag = '<div style="background-color: rgba' . $rgba . ';">';
-                //        echo substr($tag, 1);
+//        echo substr($tag, 1);
                 $objTable->add_item($tag . $rgba . '</div>');
             }
             $objTable->generate_line();
@@ -725,26 +740,25 @@ class ReportsController extends FormController {
 
         if ($this->scope == '') {
             $target = 'administrator/index.php?option=com_config&view=component&component=com_ra_mailman';
-        } else {              
+        } else {
             if ($this->scope == 'A') {
-                $lookup_code = substr($setup->setup_code, 0, 2);           
+                $lookup_code = substr($setup->setup_code, 0, 2);
             } else {
                 $lookup_code = $setup->setup_code;
             }
             $sql = 'SELECT id FROM #__ra_organisations WHERE code="' . $lookup_code . '"';
             $id = $this->toolsHelper->getValue($sql);
-            $target = 'administrator/index.php?option=com_ra_members&view=organisation&layout=edit&callback=dashboard';           
+            $target = 'administrator/index.php?option=com_ra_members&view=organisation&layout=edit&callback=dashboard';
             $target .= '&scope=' . $this->scope . '&id=' . $id;
         }
         echo $this->toolsHelper->buildButton($target, 'Configure', True, 'red');
-        echo $this->toolsHelper->backButton($this->back. '&scope=' . $this->scope);
+        echo $this->toolsHelper->backButton($this->back . '&scope=' . $this->scope);
     }
 
     public function recentMailshots() {
         ToolBarHelper::title('Recent Mailshots');
         echo $this->breadcrumbs;
-        $mailHelper = new MailHelper;
-        echo '<h4>Scope '  . $this->subheading . '</h4>';
+        echo '<h4>Scope ' . $this->subheading . '</h4>';
         $max = 20;
         $objTable = new ToolsTable();
         $objTable->add_header("Status,Modified,Group,List,Mailshot,Started,Sent,Subscribers,Outstanding,");
@@ -770,7 +784,7 @@ class ReportsController extends FormController {
                     $row->emails_outstanding = 0;
                 }
             } elseif ($has_processing_started) {
-                $actually_outstanding = $mailHelper->countSubscribersOutstanding($row->mailshot_id);
+                $actually_outstanding = $this->mailHelper->countSubscribersOutstanding($row->mailshot_id);
                 if ($row->emails_outstanding !== $actually_outstanding) {
                     Factory::getApplication()->enqueueMessage('Outstanding email count for ' . $row->group_code . ' ' . $row->name . ' was out of date (' . $row->emails_outstanding . '), now corrected to ' . $actually_outstanding, 'notice');
                     $this->mailHelper->updateOutstanding($row->id, $actually_outstanding);
@@ -801,8 +815,8 @@ class ReportsController extends FormController {
                 }
             }
 
-            // Count number of subscribers
-            $count_subscribers = $mailHelper->countSubscribers($row->id);
+// Count number of subscribers
+            $count_subscribers = $this->mailHelper->countSubscribers($row->id);
             $objTable->add_item($count_subscribers);
 
             if ($actually_outstanding == 0) {
@@ -810,7 +824,7 @@ class ReportsController extends FormController {
             } else {
                 $target = 'administrator/index.php?option=com_ra_mailman&task=mail_lst.showOutstanding&id=' . $row->mailshot_id;
                 $objTable->add_item($this->toolsHelper->buildLink($target, $actually_outstanding));
-            }   
+            }
 
             if ($status === 2 || $status === 3) {
                 $target = 'administrator/index.php?option=com_ra_mailman&task=mailshot.cancelSending&mailshot_id=';
@@ -895,7 +909,6 @@ class ReportsController extends FormController {
                 return 'Invalid';
         }
     }
-
 
     public function showCreated() {
 // Shows a matrix of the number of subscriptions created from Corporate feed
@@ -1080,11 +1093,11 @@ class ReportsController extends FormController {
 // Columns are months, with a row for each mailing list
         ToolBarHelper::title('Mailman report');
         echo $this->breadcrumbs;
-      
+
         $current_year = date('Y');
         $current_month = date('m');
         echo "<h2>Renewals by Date</h2>";
-        echo '<h4>Scope '  . $this->subheading . '</h4>';
+        echo '<h4>Scope ' . $this->subheading . '</h4>';
         if ($current_month == '01') {
             $month_string = '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1';
         } else {
@@ -1104,9 +1117,9 @@ class ReportsController extends FormController {
         $months = explode(', ', $month_string);
         $yyyy = $current_year;
         $sql = 'SELECT id, group_code, name from `#__ra_mail_lists` ';
-        $sql .= $this->buildCriterion('WHERE','group_code');
+        $sql .= $this->buildCriterion('WHERE', 'group_code');
         $sql .= 'ORDER BY group_code, name';
-        
+
         $lists = $this->toolsHelper->getRows($sql);
         $objTable = new ToolsTable;
         $header = 'Group, List';
@@ -1253,7 +1266,7 @@ class ReportsController extends FormController {
 
     public function showMailshotsByMonth() {
         echo $this->breadcrumbs; // . $this->breadcrumbsExtra('
-        echo '<h4>Scope '  . $this->subheading . '</h4>';
+        echo '<h4>Scope ' . $this->subheading . '</h4>';
         $field = 'date_sent';
         $table = ' #__ra_mail_shots';
         $criteria = '';
@@ -1268,7 +1281,7 @@ class ReportsController extends FormController {
         $month = $this->app->input->getInt('month', '5');
         ToolBarHelper::title('Mailshots for ' . $month . '/' . $year);
         echo $this->breadcrumbs . $this->breadcrumbsExtra('Mailshots by month', 'showMailshotsByMonth');
-        echo '<h4>Scope '  . $this->subheading . '</h4>';
+        echo '<h4>Scope ' . $this->subheading . '</h4>';
         $sql = 'SELECT ms.date_sent, ms.title, ml.created_by, ';
         $sql .= 'ml.group_code, ml.name,p.preferred_name ';
         $sql .= 'FROM `#__ra_mail_lists` AS ml ';
@@ -1304,7 +1317,6 @@ class ReportsController extends FormController {
         echo $this->toolsHelper->backButton($target);
     }
 
-   
     public function showSubscriptionsByStatus() {
         ToolBarHelper::title($this->prefix . 'Subscriptions by Status');
         echo $this->breadcrumbs;
@@ -1428,7 +1440,7 @@ class ReportsController extends FormController {
     }
 
     public function subscriptionsReportDetail() {
-        // shows all Users for the given mail-list
+// shows all Users for the given mail-list
         $list_id = $this->app->input->getInt('id', '2');
         $sql = 'SELECT group_code, name, owner_id FROM #__ra_mail_lists ';
         $sql .= 'WHERE id=' . $list_id;
@@ -1436,7 +1448,7 @@ class ReportsController extends FormController {
         ToolBarHelper::title('Subscriptions Report for ' . $item->group_code . ' ' . $item->name);
         echo $this->breadcrumbs . $this->breadcrumbsExtra('Subscriptions Report', 'subscriptionsSummary');
         $table_headings = 'Group,User,';
-        // Check whether to show email addresses
+// Check whether to show email addresses
         if ($this->toolsHelper->isSuperuser()) {
             $showEmail = true;
             $table_headings .= 'email,';
@@ -1461,16 +1473,16 @@ class ReportsController extends FormController {
         $sql .= 'WHERE u.block=0 ';
         $sql .= 'AND s.list_id=' . $list_id;
         $sql .= ' ORDER BY g.name, p.preferred_name';
-        //       echo $sql;
-        // return;
+//       echo $sql;
+// return;
         $rows = $this->toolsHelper->getRows($sql);
         $table = new ToolsTable;
         $table->add_header($table_headings);
         foreach ($rows as $row) {
 
             $table->add_item($row->group_name);
-            //        $table->add_item($row->group_code);
-            //
+//        $table->add_item($row->group_code);
+//
             if (is_null($row->preferred_name)) {
                 $contact = $row->created_by;
             } else {
@@ -1502,11 +1514,11 @@ class ReportsController extends FormController {
     public function subscriptionsSummary() {
         ToolBarHelper::title('Subscriptions Summary');
         echo $this->breadcrumbs; // . $this->breadcrumbsExtra('Mailshots by month', 'showMailshotsByMonth');
-        echo '<h4>Scope '  . $this->subheading . '</h4>'; 
+        echo '<h4>Scope ' . $this->subheading . '</h4>';
         $sql = 'SELECT l.id, l.group_code, l.name, l.state, p.preferred_name ';
         $sql .= 'FROM #__ra_mail_lists AS l ';
         $sql .= 'INNER JOIN #__ra_profiles AS p ON p.id=l.owner_id ';
-        $sql .= $this->buildCriterion('WHERE','l.group_code');
+        $sql .= $this->buildCriterion('WHERE', 'l.group_code');
         $sql .= ' ORDER BY l.group_code, l.name';
         $rows = $this->toolsHelper->getRows($sql);
 
@@ -1524,7 +1536,7 @@ class ReportsController extends FormController {
             }
             $table->add_item($row->group_code);
             $table->add_item($name);
-    
+
             $table->add_item($row->preferred_name);
 
             $count = $this->toolsHelper->getValue($sql_lookup . $row->id . ' AND state=1');
@@ -1538,6 +1550,38 @@ class ReportsController extends FormController {
         $table->generate_table();
         $target = "administrator/index.php?option=com_ra_mailman&view=reports";
         echo $this->toolsHelper->backButton($target);
+    }
+
+    public function updateNames() {
+        echo '<h4>Updating profile id</h4>';
+        $sql = 'SELECT p.id AS profile_id, p.preferred_name, u.id AS user_id ';
+        $sql .= 'FROM #__ra_profiles AS p ';
+        $sql .= 'INNER JOIN #__users AS u ON u.name  = p.preferred_name ';
+//          $sql .= 'WHERE u.id IS NULL AND p.membershipNumber IS NULL ';
+        $sql .= 'ORDER BY p.preferred_name';
+        $rows = $this->toolsHelper->getRows($sql);
+        $table = new ToolsTable();
+        $table->add_header('Profile id, Preferred Name,User_id,Action');
+        foreach ($rows as $row) {
+            $table->add_item($row->profile_id);
+            $table->add_item($row->preferred_name);
+            $table->add_item($row->user_id);
+            // See if a matching user can be found
+            $sql_lookup = 'SELECT id from #__users WHERE name=' . $this->db->quote($row->preferred_name);
+            $user_id = $this->toolsHelper->getValue($sql_lookup);
+
+            if ($user_id) {
+                $sql_update = 'UPDATE #__ra_profiles SET id=' . $user_id;
+                $sql_update .= ' WHERE preferred_name=' . $this->db->quote($row->preferred_name);
+                $this->toolsHelper->executeCommand($sql_update);
+                //               $table->add_item($sql_update );
+                $table->add_item('Fixed ' . $user_id);
+            }
+
+            $table->generate_line();
+        }
+        $table->generate_table();
+        echo $this->toolsHelper->rows . ' records found<br>';
     }
 
 }

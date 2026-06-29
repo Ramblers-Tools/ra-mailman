@@ -8,7 +8,8 @@
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 19/02/24 CB correction for creating Profile records - don't pass parameters
  * 25/03/24 CB don't delete from profiles_audit
- * 14/1/24 CB delete records from subscriptions_audit
+ * 14/01/24 CB delete records from subscriptions_audit
+ * 23/06/26 CB $this->toolsHelper
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -20,6 +21,7 @@ use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
+use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
@@ -31,6 +33,14 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 class ProfileController extends FormController {
 
     protected $view_list = 'profiles';
+    private $toolsHelper;
+
+    public function __construct() {
+        parent::__construct();
+        $this->toolsHelper = new ToolsHelper;
+        $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
+        $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
+    }
 
     public function cancel($key = null, $urlVar = null) {
         $this->setRedirect(Route::_('/administrator/index.php?option=com_ra_tools&view=dashboard', false));
@@ -41,11 +51,10 @@ class ProfileController extends FormController {
         // Creates a record, allows it to be edited
         $id = Factory::getApplication()->input->getInt('id', '');
         echo 'Controller / id=' . $id . '<br>';
-        $objHelper = new ToolsHelper;
         $sql = 'SELECT name, email FROM `#__users` ';
         $sql .= 'WHERE id=' . $id;
 
-        $item = $objHelper->getItem($sql);
+        $item = $this->toolsHelper->getItem($sql);
         if ($item) {
 
             $objUserHelper = new UserHelper;
@@ -63,41 +72,40 @@ class ProfileController extends FormController {
     public function purgeProfile() {
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
-        $objHelper = new ToolsHelper;
         $id = Factory::getApplication()->input->getInt('id', '0');
         echo 'Purging profile for ' . $id . '<br>';
 
         if ($id > 0) {
             $sql = 'DELETE FROM #__ra_profiles WHERE id=' . $id;
-            $objHelper->executeCommand($sql);
+            $this->toolsHelper->executeCommand($sql);
             // delete details of any emails sent
             $sql = 'DELETE FROM #__ra_mail_recipients WHERE user_id=' . $id;
             echo $sql . '<br>';
-            $objHelper->executeCommand($sql);
+            $this->toolsHelper->executeCommand($sql);
 
             // Delete any subscriptions
             $sql = 'SELECT id FROM #__ra_mail_subscriptions WHERE user_id>' . $id;
-            $rows = $objHelper->getRows($sql);
+            $rows = $this->toolsHelper->getRows($sql);
             foreach ($rows as $row) {
                 $sql = 'DELETE FROM  #__ra_mail_subscriptions_audit ';
                 $sql .= 'WHERE object_id=' . $row->id;
                 echo $sql . '<br>';
-                $objHelper->executeCommand($sql);
+                $this->toolsHelper->executeCommand($sql);
                 $sql = 'DELETE FROM #__ra_mail_subscriptions WHERE id=' . $id;
                 echo $sql . '<br>';
-                $objHelper->executeCommand($sql);
+                $this->toolsHelper->executeCommand($sql);
             }
 //        echo $sql . '<br>';
-//        $objHelper->executeCommand($sql);
+//        $this->toolsHelper->executeCommand($sql);
             // delete profile audit records
 //                $sql = 'DELETE FROM #__ra_profiles_audit WHERE object_id=' . $id;
 //                echo $sql . '<br>';
-//                $objHelper->executeCommand($sql);
+//                $this->toolsHelper->executeCommand($sql);
 //        }
         }
 
         $back = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles';
-        echo $objHelper->backButton($back);
+        echo $this->toolsHelper->backButton($back);
     }
 
     /*
@@ -190,8 +198,7 @@ class ProfileController extends FormController {
 
     public function test() {
         echo __FILE__;
-        $objHelper = new ToolsHelper;
-        if (!$objHelper->isSuperuser()) {
+        if (!$this->toolsHelper->isSuperuser()) {
             return;
         }
         $objUserHelper = new UserHelper;

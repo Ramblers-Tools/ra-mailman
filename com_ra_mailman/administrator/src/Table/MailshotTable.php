@@ -1,8 +1,8 @@
 <?php
 
 /**
- * @version    4.5.7
- * @package    com_Ra_mailman
+ * @version    4.7.9
+ * @package    com_ra_mailman
  * @author     Charlie Bigley <webmaster@bigley.me.uk>
  * @copyright  2024 Charlie Bigley
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
@@ -102,11 +102,12 @@ class MailshotTable extends Table implements VersionableTableInterface, Taggable
         $input = $app->input;
         $task = $input->getString('task', '');
 
+        $array['reply_to'] = $this->lookupContact($array['contact_id']);
         if ($array['id'] == 0) {
             $array['created'] = Factory::getDate('now', Factory::getConfig()->get('offset'))->toSql(true);
             $array['created_by'] = $user->id;
         }
-        // Support for multi file field: attachment
+// Support for multi file field: attachment
         $array['attachment'] = implode(',', $this->normaliseAttachmentNames($array['attachment'] ?? ''));
 
         if (isset($array['params']) && is_array($array['params'])) {
@@ -211,69 +212,77 @@ class MailshotTable extends Table implements VersionableTableInterface, Taggable
                 continue;
             }
 
-                jimport('joomla.filesystem.file');
+            jimport('joomla.filesystem.file');
 
 // Check if the server found any error.
-                $fileError = $singleFile['error'];
-                $message = '';
+            $fileError = $singleFile['error'];
+            $message = '';
 
-                if ($fileError > 0 && $fileError != 4) {
-                    switch ($fileError) {
-                        case 1:
-                            $message = Text::_('File size exceeds allowed by the server');
-                            break;
-                        case 2:
-                            $message = Text::_('File size exceeds allowed by the html form');
-                            break;
-                        case 3:
-                            $message = Text::_('Partial upload error');
-                            break;
-                    }
+            if ($fileError > 0 && $fileError != 4) {
+                switch ($fileError) {
+                    case 1:
+                        $message = Text::_('File size exceeds allowed by the server');
+                        break;
+                    case 2:
+                        $message = Text::_('File size exceeds allowed by the html form');
+                        break;
+                    case 3:
+                        $message = Text::_('Partial upload error');
+                        break;
+                }
 
-                    if ($message != '') {
-                        $app->enqueueMessage($message, 'warning');
+                if ($message != '') {
+                    $app->enqueueMessage($message, 'warning');
 
-                        return false;
-                    }
-                } else {
+                    return false;
+                }
+            } else {
 
-                    // Check for filetype
+// Check for filetype
 
-                    $validMIMEArray = explode(',', $this->okMIMETypes);
-                    $fileMime = $singleFile['type'];
+                $validMIMEArray = explode(',', $this->okMIMETypes);
+                $fileMime = $singleFile['type'];
 
-                    if (!in_array($fileMime, $validMIMEArray)) {
-                        $app->enqueueMessage('Only allowed filetypes ' . $this->okMIMETypes . ' ( not ' . $fileMime . ')', 'error');
-                        return false;
-                    }
+                if (!in_array($fileMime, $validMIMEArray)) {
+                    $app->enqueueMessage('Only allowed filetypes ' . $this->okMIMETypes . ' ( not ' . $fileMime . ')', 'error');
+                    return false;
+                }
 
 // Replace any special characters in the filename
-                    jimport('joomla.filesystem.file');
-                    $filename = File::stripExt($singleFile['name']);
-                    $extension = File::getExt($singleFile['name']);
-                    $filename = preg_replace("/[^A-Za-z0-9]/i", "-", $filename);
-                    $filename = $filename . '.' . $extension;
-                    $uploadPath = $this->image_path . $filename;
-                    $fileTemp = $singleFile['tmp_name'];
+                jimport('joomla.filesystem.file');
+                $filename = File::stripExt($singleFile['name']);
+                $extension = File::getExt($singleFile['name']);
+                $filename = preg_replace("/[^A-Za-z0-9]/i", "-", $filename);
+                $filename = $filename . '.' . $extension;
+                $uploadPath = $this->image_path . $filename;
+                $fileTemp = $singleFile['tmp_name'];
 
-                    if (File::exists($uploadPath)) {
-                        $app->enqueueMessage('File ' . $filename . ' uploaded', 'info');
-                    } else {
-                        if (!File::upload($fileTemp, $uploadPath)) {
-                            $app->enqueueMessage('Error moving file ' . $uploadPath, 'warning');
-                            return false;
-                        }
-                    }
-
-                    if (!in_array($filename, $existingAttachments, true)) {
-                        $existingAttachments[] = $filename;
+                if (File::exists($uploadPath)) {
+                    $app->enqueueMessage('File ' . $filename . ' uploaded', 'info');
+                } else {
+                    if (!File::upload($fileTemp, $uploadPath)) {
+                        $app->enqueueMessage('Error moving file ' . $uploadPath, 'warning');
+                        return false;
                     }
                 }
+
+                if (!in_array($filename, $existingAttachments, true)) {
+                    $existingAttachments[] = $filename;
+                }
+            }
         }
 
         $this->attachment = implode(',', $existingAttachments);
 
         return parent::check();
+    }
+
+    private function lookupContact($id) {
+        $toolsHelper = new ToolsHelper;
+        $sql = 'SELECT email FROM #__users AS u ';
+        $sql .= 'WHERE id = ' . (INT) $id;
+        //       return $sql;
+        return $toolsHelper->getValue($sql);
     }
 
     private function normaliseAttachmentNames($attachments) {
@@ -282,7 +291,7 @@ class MailshotTable extends Table implements VersionableTableInterface, Taggable
         }
 
         if (is_string($attachments)) {
-            $attachments = explode(',', $attachments);
+            $attachments = explode(', ', $attachments);
         }
 
         if (!is_array($attachments)) {
@@ -290,8 +299,8 @@ class MailshotTable extends Table implements VersionableTableInterface, Taggable
         }
 
         $attachments = array_filter(array_map(function ($attachment) {
-            return is_string($attachment) ? trim($attachment) : '';
-        }, $attachments));
+                    return is_string($attachment) ? trim($attachment) : '';
+                }, $attachments));
 
         return array_values(array_unique($attachments));
     }

@@ -3,21 +3,10 @@
 /**
  * Contains functions used in the back end and the front end
  *
- * @version    4.7.3
+ * @version    4.7.8
  * @package    com_ra_mailman
  * @author     charles
 
- * 09/03/25 CB correct message when unsubscribing
- * 03/04/25 CB correct isAuthor and lastMailshot
- * 05/04/25 CB use JPATH_ROOT for attachments (otherwise does not work from Admin)
- * 30/04/25 CB add logo to email header
- * 19/05/25 CB remove logo, check for duplicates when sending, don't append sender's email address
- * 31/05/25 CB show colours, warning if no subscribers, correct restart, X on behalf of Y
- * 17/06/25 CB revert X on behalf of Y (fix error in buildMessage)
- * 06/08/25 CB warning if email logging is active
- * 19/08/25 CB make user_id public
- * 03/10/25 CB optionally include invitation to an event
- * 06/10/25 CB add colour for event link
  * 25/02/26 CB restructured buildMessage to build the email as a whole, with header and footer,
  *             so that the event invitation can be included in the correct place
  * 16/03/26 CB changes for sub-set
@@ -25,6 +14,12 @@
  * 06/05/26 CB 4.7.2 catch blank $list_id in getOwnerId
  * 19/05.26 CB delete reference to logging emails, recognise batch_mode, stop duplicate jobs
  * 20/05/26 CB add recipients
+ * 05/06/26 CB Only show mailman reports if add access
+ * 07/06/26 CB show Email exceptions
+ * 08/06/26 CB change literal in showSubscriptionDetails
+ * 15/06/26 CB lookupMember
+ * 23/06/26 CB Tweak showSubscriptionDetails
+ * 28/06/26 CB optionally over-ride send_to, draft emails
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Helpers;
@@ -42,11 +37,11 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 class Mailhelper {
 
-    public $batch_mode = false; // if true, messages are added to $this->messages instead of enqueued, for display at the end of the batch process   
+    public $batch_mode = false; // if true, messages are added to $this->messages instead of enqueued, for display at the end of the batch process
     public $message;
     public $messages;
-    public $user_id;
-
+    public $user;
+    public $user_id;   // this is reduntant
     private $bookingHelper;
     private $config_group;
     private $event_id;
@@ -56,13 +51,14 @@ class Mailhelper {
     protected $email_title;
     protected $app;
     protected $toolsHelper;
-    protected $query;  
+    protected $query;
 
     public function __construct() {
         $this->db = Factory::getDbo();
         $this->toolsHelper = new ToolsHelper;
         $this->app = Factory::getApplication();
-        $this->user_id = $this->app->getSession()->get('user')->id;
+        $this->user = $this->app->getSession()->get('user');
+        $this->user_id = $this->user->id;
     }
 
     public function buildEmailHeader($setup = null) {
@@ -121,7 +117,8 @@ class Mailhelper {
         $header .= '</div>';
         return $header;
     }
-    public function buildMenu(){
+
+    public function buildMenu() {
 //      Invoked from com_ra_tools / Admin / dashboard
 //      set callback in globals so organisation can return as appropriate after configuration
         $app = Factory::getApplication();
@@ -130,26 +127,39 @@ class Mailhelper {
         $super = $this->toolsHelper->isSuperUser();
         // find current scope
         $code = $this->getDefaultGroup();
-
+        echo 'Hi ' . $this->user->name . ', your default Group is ';
+        if (empty($code)) {
+            echo 'not set';
+        } else {
+            echo $code;
+        }
+        if ($super) {
+            echo ', you are a SuperUser';
+        }
         if (!empty($code) && $code !== 'N') {
             $sql = 'SELECT id, name ';
             $sql .= 'FROM #__ra_organisations ';
             $sql .= 'WHERE code=' . $this->db->quote($code);
-            $item = $this->toolsHelper->getItem($sql);  
-            $subheading =  $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');
+            $item = $this->toolsHelper->getItem($sql);
+            $subheading = $code . ' ' . (!empty($item->name) ? htmlspecialchars($item->name) : 'N/A');
         } else {
             $subheading = 'All records';
-        }  
+        }
 
         if ($canDo->get('core.create')) {
             $text = '<h3>System Tools</h3>';
             $text .= '<ul>';
 //            $this->user = $this->getCurrentUser();
-//            if ($this->user->id == 1) { 
-              $text .= '<li><a href="index.php?option=com_ra_tools&view=clusters" target="_self">Clusters</a></li>';
-          //}
+//            if ($this->user->id == 1) {
+            $text .= '<li><a href="index.php?option=com_ra_tools&view=clusters" target="_self">Clusters</a></li>';
+            //}
             $text .= '<li><a href="index.php?option=com_ra_members&view=organisations" target="_self">Areas and Groups</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_tools&view=apisites" target="_self">API sites</a></li>';
+            if ($super) {
+                $text .= '<li><a href="index.php?option=com_ra_tools&view=apisites" target="_self">API sites</a></li>';
+            }
+            if (ComponentHelper::isEnabled('com_ra_delivery', true)) {
+                $text .= '<li><a href="index.php?option=com_ra_delivery" target="_self">List Email exceptions</a></li>';
+            }
 //            $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=profiles" target="_self">MailMan Users</a></li>';
             $text .= '<li><a href="index.php?option=com_ra_tools&amp;view=reports" target="_self">System Reports</a></li>';
             $versions = $this->toolsHelper->getVersions('com_ra_mailman');
@@ -158,15 +168,15 @@ class Mailhelper {
 // Only loads NS03
 //           $text .= '<li><a href="index.php?option=com_ra_mailman&task=profiles.load" target="_self">Test data load</a></li>';
             $text .= '</ul>';
-        }   
-        $text .= '<h4>Scope '  . $subheading . '</h4>';
+        }
+        $text .= '<h4>Scope ' . $subheading . '</h4>';
         $canDo = ContentHelper::getActions('com_ra_members');
-        if ($canDo->get('core.create')) {   
+        if ($canDo->get('core.create')) {
             $text .= '<h3>Members</h3>';
             $text .= '<ul>';
-           
+
             $text .= '<li><a href="index.php?option=com_ra_members&view=members" target="_self">Members</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_members&amp;view=roles" target="_self">Roles</a></li>';    
+            $text .= '<li><a href="index.php?option=com_ra_members&amp;view=roles" target="_self">Roles</a></li>';
             $text .= '<li><a href="index.php?option=com_ra_tools&amp;view=users" target="_self">Users</a></li>';
             $text .= '<li><a href="index.php?option=com_ra_members&amp;view=reports" target="_self">Membership Reports</a></li>';
             $versions = $this->toolsHelper->getVersions('com_ra_members');
@@ -174,28 +184,29 @@ class Mailhelper {
             $text .= "Configure system defaults (version " . $versions->component . ")</a></li>" . PHP_EOL;
 //            $text .= '<li><a href="index.php?option=com_ra_mailman&task=profiles.load" target="_self">Test data load</a></li>';
             $text .= '</ul>';
-        }       
- 
+        }
+
         $text .= '<h3>Mail Manager</h3>';
-       
+
         $text .= '<ul>';
         $text .= '<li><a href="index.php?option=com_ra_mailman&view=mail_lsts" target="_self">Mailing lists</a></li>';
         $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=mailshots" target="_self">Mailshots</a></li>';
-        $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=recipients" target="_self">Recipients</a></li>';
-        $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=reports" target="_self">Mailman Reports</a></li>';
-        
+        $canDo = ContentHelper::getActions('com_ra_mailman');
         if ($canDo->get('core.create')) {
+            $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=recipients" target="_self">Recipients</a></li>';
+            $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=reports" target="_self">Mailman Reports</a></li>';
             $text .= '<li><a href="index.php?option=com_ra_mailman&amp;view=subscriptions" target="_self">Subscriptions</a></li>';
-           
-        } 
-        $area_code = substr($code, 0, 2);
-        $area_id = $this->toolsHelper->getValue('SELECT id FROM #__ra_organisations WHERE code="' . $area_code . '"');
-        if (!empty($area_id)) {
-//            $text .= '<li><a href="index.php?option=com_ra_mailman&view=reports&area=' . $area_code . '" target="_self">Area reports</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_members&view=organisation&layout=edit&callback=dashboard&id=' .  $area_id  . ' " target="_self">Configure ' . $area_code  . '</a></li>'; 
-        }   
-        $text .= '<li><a href="index.php?option=com_ra_members&view=organisation&layout=edit&callback=dashboard&id=' . (!empty($item->id) ? $item->id : '') . ' " target="_self">Configure ' . $code  . '</a></li>'; 
-         if ($this->toolsHelper->isSuperuser()){
+            $area_code = substr($code, 0, 2);
+            $area = $this->toolsHelper->getItem('SELECT id,name FROM #__ra_organisations WHERE code="' . $area_code . '"');
+            if (!empty($area->id)) {
+                $label = $area_code . ' ' . $area->name;
+                //            $text .= '<li><a href="index.php?option=com_ra_mailman&view=reports&area=' . $area_code . '" target="_self">Area reports</a></li>';
+                $text .= '<li>Configure email settings for <a href="index.php?option=com_ra_members&view=organisation&layout=edit&callback=dashboard&id=' . $area_id . ' " target="_self">' . $label . '</a></li>';
+            }
+            $label = $code . ' ' . $this->toolsHelper->lookupGroup($code);
+            $text .= '<li>Configure email settings for <a href="index.php?option=com_ra_members&view=organisation&layout=edit&callback=dashboard&id=' . (!empty($item->id) ? $item->id : '') . ' " target="_self">' . $label . '</a></li>';
+        }
+        if ($this->toolsHelper->isSuperuser()) {
 
 //            $text .= '<li>(DB version is ' . $versions->db_version . ')</li>';
         }
@@ -246,10 +257,10 @@ class Mailhelper {
         $this->email_title = $item->title;
 
         $setup = $this->getEmailSetup();
-    if ($setup === false) {
-        $this->message = 'Email setup not found';
-        return false;
-    }
+        if ($setup === false) {
+            $this->message = 'Email setup not found';
+            return false;
+        }
 
         // Build the email body fragment; ToolsHelper::sendEmail() adds the outer HTML wrapper.
         $mailshot_body = '';
@@ -289,8 +300,8 @@ class Mailhelper {
             }
         }
         // Leave the body div open here so event content can be inserted later.
-    // Footer comprises the footer from the list plus the component footer.
-    // It is left open so the unsubscribe link can be appended later.
+        // Footer comprises the footer from the list plus the component footer.
+        // It is left open so the unsubscribe link can be appended later.
         $this->footer = '<div style="background: ' . $setup->colour_footer;
         $this->footer .= '; padding: 10px;  border-radius: 5%; ">';
         $this->footer .= $item->footer . '<br>';
@@ -301,7 +312,7 @@ class Mailhelper {
 
         return $mailshot_body;
     }
-    
+
     private function canDo($option = 'core.manage') {
         // 04/11/24 this function probably not used
 // Checks that the current user is authorised for the given option
@@ -490,12 +501,22 @@ class Mailhelper {
 
         return strrev($token) . "M";
     }
+
+    private function generateInvitation($website_base, $event_id, $user_id) {
+//     Invoked from sendEmails and from sendDraft
+        $message = '<div style="background: ' . $setup->colour_body;
+        $message .= '; padding-top: 10px; ">';
+        $message .= $this->bookingHelper->generateInvitation($website_base, $event_id, $user_id);
+        $message .= '</div>';
+        return $message;
+    }
+
     public function getDefaultGroup() {
         /*
-            * Returns the default group for the current User, which is used to determine which mailing lists they can see
-            * If the full version is running, this is set to 'N' and all users see all lists
-            * If the sub-set is running, this is set to the home group of the user, which is stored in the profile record
-        */
+         * Returns the default group for the current User, which is used to determine which mailing lists they can see
+         * If the full version is running, this is set to 'N' and all users see all lists
+         * If the sub-set is running, this is set to the home group of the user, which is stored in the profile record
+         */
 //        if ($this->batch_mode) {
 //            return 'N';
 //        }
@@ -505,7 +526,7 @@ class Mailhelper {
         $default_group = $this->app->getUserState($context, '');
         if ($default_group == '') {
             $params = ComponentHelper::getParams('com_ra_mailman');
-            $full_version = $params->get('full_version');
+            $full_version = $params->get('full_version', 'N');
             if ($full_version == 'Y') {
                 return 'N';
             } else {
@@ -513,9 +534,9 @@ class Mailhelper {
                 $sql = 'SELECT home_group FROM #__ra_profiles WHERE id=' . $user->id;
                 $group = $this->toolsHelper->getValue($sql);
                 if (is_null($group)) {
-                   return false;                
+                    return false;
                     Factory::getApplication()->enqueueMessage('Can\'t find User record ' . $sql, 'error');
- //                   throw new Exception('Can\'t find User record', 404);
+                    //                   throw new Exception('Can\'t find User record', 404);
                 }
                 $this->app->setUserState($context, $group);
                 return $group;
@@ -545,29 +566,30 @@ class Mailhelper {
             return $description;
         }
     }
+
     public function getEmailSetup() {
         $params = ComponentHelper::getParams('com_ra_mailman');
 
         $setup = (object) [
-            'website' => $params->get('website', ''),
-            'email_header' => $params->get('email_header', ''),
-            'email_footer' => $params->get('email_footer', ''),
-            'logo_file' => $params->get('logo_file', ''),
-            'logo_align' => $params->get('logo_align', 'right'),
-            'colour_header' => $params->get('colour_header', 'rgba(20, 141, 168, 0.5)'),
-            'colour_body' => $params->get('colour_body', 'rgba(20, 141, 168, 0.5)'),
-            'colour_footer' => $params->get('colour_footer', 'rgba(20, 141, 168, 0.8)'),
-            'height' => $params->get('height', 90),
-            'width' => $params->get('width', 90),
-            'setup_source' => 'Component configuration',
-            'setup_code' => '',
+                    'website' => $params->get('website', ''),
+                    'email_header' => $params->get('email_header', ''),
+                    'email_footer' => $params->get('email_footer', ''),
+                    'logo_file' => $params->get('logo_file', ''),
+                    'logo_align' => $params->get('logo_align', 'right'),
+                    'colour_header' => $params->get('colour_header', 'rgba(20, 141, 168, 0.5)'),
+                    'colour_body' => $params->get('colour_body', 'rgba(20, 141, 168, 0.5)'),
+                    'colour_footer' => $params->get('colour_footer', 'rgba(20, 141, 168, 0.8)'),
+                    'height' => $params->get('height', 90),
+                    'width' => $params->get('width', 90),
+                    'setup_source' => 'Component configuration',
+                    'setup_code' => '',
         ];
         if ($this->batch_mode) {
             $code = $this->config_group;
-            $this->toolsHelper->createLog('RA Mailman','6','EmailSetup','Batch mode: config=' . $this->config_group );
+            $this->toolsHelper->createLog('RA Mailman', '6', 'EmailSetup', 'Batch mode: config=' . $this->config_group);
         } else {
             $code = $this->getDefaultGroup();
-        }      
+        }
 
         if (!empty($code) && $code !== 'N') {
             $sql = 'SELECT code, name, website, email_header, logo, logo_align, colour_header, colour_body, colour_footer ';
@@ -678,7 +700,7 @@ class Mailhelper {
             return;
         }
         $sql = "SELECT s.id AS subscription_id, l.id AS list_id, ";
-//      $sql .= "u.name AS 'User', ";          
+//      $sql .= "u.name AS 'User', ";
         $sql .= "u.id as user_id, u.email AS 'email' ";
         $sql .= 'FROM #__ra_mail_shots AS m ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = m.mail_list_id ';
@@ -872,16 +894,20 @@ class Mailhelper {
         return '';
     }
 
-    public function loadUsers($code){
+    public function loadUsers($code) {
         // Invoked from plg_ra_mailman_userload to find the users to be loaded for the given code
         $this->messages = [];
         $this->messages[] = 'No records for ' . $code;
-    } 
+    }
 
     public function lookupList($list_id) {
         $sql = 'SELECT name FROM #__ra_mail_lists ';
         $sql .= 'WHERE id = ' . $list_id;
         return $this->toolsHelper->getValue($sql);
+    }
+
+    function lookupMember($membershipNumber) {
+        return $this->toolsHelper->getValue("SELECT preferred_name FROM #__ra_profiles WHERE membershipNumber=" . (INT) $membershipNumber);
     }
 
     public function lookupOwner($list_id) {
@@ -962,51 +988,72 @@ class Mailhelper {
 //               Factory::getApplication()->enqueueMessage($mailshot_send_message, 'info');
         }
         $this->sendEmails($mailshot_id);
-//die ('After helper sendEmails ' . count($this->messages) . ' messages' );
+
         foreach (($this->messages ?? []) as $message) {
             Factory::getApplication()->enqueueMessage($message, 'info');
+        }
+        if (JDEBUG) {
+            $message = 'After helper sendEmails ' . count($this->messages) . ' messages';
+            $this->toolsHelper->createLog('RA Mailman', '20', $mailshot_id, $message);
         }
     }
 
     public function sendDraft($mailshot_id) {
-//        die('helper sendDraft ' . $mailshot_id);
+
+        $user = Factory::getApplication()->getSession()->get('user');
+        $setup = $this->getEmailSetup();
+        if ($setup === false) {
+            $this->messages[] = 'Email setup not found';
+            return false;
+        }
+        // Find the reference point for the un-subscribe link
+        $website_base = rtrim($setup->website, '/') . '/';
+
+        $this->messages = $this->messages ?? [];
+        $this->attachments = [];
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
             return false;
         }
+        if ($item->event_id > 0) {
+            $message .= 'Event ' . $item->event_id . '<br>';
+//           $message .= $this->generateInvitation($website_base, $item->event_id, $user->id);
+        }
+//      Find the email address of the current user
+        $user_email = $user->email;
+        $recipient = $user_email;
+        $message = 'Draft email sent to ';
 
 //      Find the email address of the list's owner
-        $sql = 'SELECT u.email FROM #__ra_mail_shots AS ms ';
+        $sql = 'SELECT ms.reply_to, u.email FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
-        $owner_email = $this->toolsHelper->getValue($sql);
-
-//      Find the email address of the current user
-        $user_email = Factory::getApplication()->getSession()->get('user')->email;
-
+        $item = $this->toolsHelper->getItem($sql);
+        $owner_email = $item->email;
+        $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
         if (count($this->attachments) == 0) {
-            $this->message .= '(no attachment) ';
+            $message .= '(no attachment) ';
         } else {
-            $this->message .= '(' . count($this->attachments) . ' attachment(s)) ';
+            $message .= '(' . count($this->attachments) . ' attachment(s)) ';
         }
 
         $count = 0;
         // Send message to the editor of the message
-        if ($this->toolsHelper->sendEmail($user_email, $owner_email, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
-            $this->message .= ' [' . $this->email_title . '] sent to you at ' . $user_email;
+        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+            $message .= ', editor ' . $recipient . ', reply to ' . $reply_to;
             $count++;
         } else {
-            $this->message .= ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
+            $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
             return 0;
         }
 //        die('user email ' . $user_email . '<br>' . $this->message);
 //      If current user not the list owner, send another copy to the owner, reply_to = author
-        if ($user_email != $owner_email) {
-            if ($this->toolsHelper->sendEmail($owner_email, $user_email, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
-                $this->message .= ', also sent to the owner at ' . $owner_email;
+        if ($user_email !== $owner_email) {
+            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+                $message .= ', also sent to the owner at ' . $owner_email;
                 $count++;
             } else {
                 $this->message .= ' Unable to send ' . $title . ' to ' . $owner_email;
@@ -1016,12 +1063,14 @@ class Mailhelper {
         if ($count > 0) {
             $this->message .= ' ' . $count . ' emails sent';
         }
+
+        $this->app->enqueueMessage($message, 'info');
 //        die($this->message);
         return true;
     }
 
     public function sendEmails($mailshot_id) { // before version 4.5.1, this was function send
-//    This bypasses the check for on-line maximum and is only invoked from send() 
+//    This bypasses the check for on-line maximum and is only invoked from send()
 //    if the total number of emails to be sent is less than the on-line maximum
 //
 //   It is also invoked from the batch job, and from task mailshot.send, which in turn is invoked by ForceSend
@@ -1029,13 +1078,14 @@ class Mailhelper {
         $this->attachments = [];
 
 //     Get details of the mailshot, the list and the email address of the list's owner
-        $sql = 'SELECT l.id, l.group_code, u.email, ms.processing_started, ms.date_sent, ms.title ';
+        $sql = 'SELECT l.id, l.group_code, u.email, ';
+        $sql .= 'ms.processing_started, ms.date_sent, ms.title, ms.event_id, ms.reply_to ';
         $sql .= 'FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
-        $message = 'Processing_started=' . $item->processing_started . ', group=' . $item->group_code . ', owner email=' . $item->email  ;
+        $message = 'Processing_started=' . $item->processing_started . ', group=' . $item->group_code . ', owner email=' . $item->email;
         if (is_null($item->date_sent)) {
             $message .= ', date_sent is null';
         } else {
@@ -1043,6 +1093,7 @@ class Mailhelper {
         }
         $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
         $mail_list_id = $item->id;
+        $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
 
         if ($this->hasMailshotDate($item->date_sent)) {
             $this->messages[] = 'Mailshot "' . $item->title . '" is closed and cannot be restarted (' . $item->date_sent . ')';
@@ -1066,12 +1117,11 @@ class Mailhelper {
             }
         }
 
-         if ($this->batch_mode) {       
+        if ($this->batch_mode) {
             // Specify the group to be used for configuration details, which will be used when building the message
             $this->config_group = $item->group_code;
         }
-        $reply_to = $item->email;
-       
+
         $setup = $this->getEmailSetup();
         if ($setup === false) {
             $this->messages[] = 'Email setup not found';
@@ -1079,21 +1129,21 @@ class Mailhelper {
         }
         // Find the reference point for the un-subscribe link
         $website_base = rtrim($setup->website, '/') . '/';
-     
+
 //        if ($website_base == '') {
 //            $params = ComponentHelper::getParams('com_ra_mailman');
 //            $website_base = rtrim($params->get('website'), '/') . '/';
 //        }
 // Find the maximumun number of emails to be sent at one time
         $params = ComponentHelper::getParams('com_ra_mailman');
-    $max_emails = (int) $params->get('max_emails', 120);
+        $max_emails = (int) $params->get('max_emails', 120);
 
 // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
-    if ($mailshot_body === false) {
-        $this->messages[] = $this->message;
-        return false;
-    }
+        if ($mailshot_body === false) {
+            $this->messages[] = $this->message;
+            return false;
+        }
 
 
 //      Set up maximum time of 10 mins (should be parameter in config
@@ -1135,11 +1185,11 @@ class Mailhelper {
             }
         }
         $this->toolsHelper->createLog(
-            'RA Mailman',
-            '11',
-            $mailshot_id,
-            'Dispatch loop starting for mailshot "' . $item->title . '": restart=' . ($restart ? 'Y' : 'N') .
-            ', subscribers=' . $count_subscribers . ', max_emails=' . $max_emails
+                'RA Mailman',
+                '12',
+                $mailshot_id,
+                'Dispatch loop starting for mailshot "' . $item->title . '": restart=' . ($restart ? 'Y' : 'N') .
+                ', subscribers=' . $count_subscribers . ', max_emails=' . $max_emails
         );
         $error_count = 0;
         $attempt_count = 0;
@@ -1166,10 +1216,10 @@ class Mailhelper {
 
                 $message = $mailshot_body;
                 $message .= '</div>';
-                if ($this->event_id > 0) {
+                if ($item->event_id > 0) {
                     $message .= '<div style="background: ' . $setup->colour_body;
                     $message .= '; padding-top: 10px; ">';
-                    $message .= $this->bookingHelper->generateInvitation($website_base, $this->event_id, $subscriber->user_id);
+                    $message .= $this->bookingHelper->generateInvitation($website_base, $item->event_id, $subscriber->user_id);
                     $message .= '</div>';
                 }
 
@@ -1181,10 +1231,10 @@ class Mailhelper {
                 $message .= '</body></html>';
 
                 $this->toolsHelper->createLog(
-                    'RA Mailman',
-                    '13',
-                    $mailshot_id,
-                    'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
+                        'RA Mailman',
+                        '14',
+                        $mailshot_id,
+                        'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
                 );
 
                 if (!$this->toolsHelper->sendEmail($subscriber->email, $reply_to, $this->email_title, $message, $this->attachments)) {
@@ -1225,7 +1275,7 @@ class Mailhelper {
             $this->message .= ' ' . $error_count . ' Errors';
         }
         $this->updateOutstanding($mail_list_id, $outstanding);
-        $this->toolsHelper->createLog('RA Mailman', '19', $mailshot_id, 'Dispatch loop finished: sent=' . $sent_count . ', errors=' . $error_count . ', outstanding=' . $outstanding);
+        $this->toolsHelper->createLog('RA Mailman', '18', $mailshot_id, 'Dispatch loop finished: sent=' . $sent_count . ', errors=' . $error_count . ', outstanding=' . $outstanding);
         $this->messages[] = ' Mailshot ' . $this->email_title . ' sent to ' . $sent_count . ' users ';
         if ($outstanding == 0) {
             // Attempt to update has failed
@@ -1296,13 +1346,13 @@ class Mailhelper {
         }
 
 //      get component parameters
-    $setup = $this->getEmailSetup();
-    if ($setup === false) {
-        $this->message = 'Email setup not found';
-        return false;
-    }
-    $body = '<i>' . $setup->email_header . '</i><br>';
-    $website_base = rtrim($setup->website, '/') . '/';
+        $setup = $this->getEmailSetup();
+        if ($setup === false) {
+            $this->message = 'Email setup not found';
+            return false;
+        }
+        $body = '<i>' . $setup->email_header . '</i><br>';
+        $website_base = rtrim($setup->website, '/') . '/';
 //        echo 'base ' . $website_base . '<br>';
 
         $sql = 'SELECT s.id, s.user_id, s.list_id, s.expiry_date, datediff(s.expiry_date, CURRENT_DATE) AS days_to_go, ';
@@ -1438,14 +1488,20 @@ class Mailhelper {
         echo 'Email: <b>' . $item->email . '</b><br>';
         echo 'List: ' . $item->list_id . ' <b>' . $item->group_code . ' <b>' . $item->list . '</b></b><br>';
         echo 'Access ' . $item->record_type . ' <b>' . $item->access . '</b><br>';
-        echo 'Method ' . $item->method_id . ' <b>' . $item->method . '</b><br>';
+        echo 'Method of subscribing ' . $item->method_id . ' <b>' . $item->method . '</b><br>';
         //
         echo 'Expires <b>' . HTMLHelper::_('date', $item->expiry_date, 'd-M-Y') . '</b><br>';
         if (!is_null($item->reminder_sent)) {
             echo 'Reminder <b>' . HTMLHelper::_('date', $item->reminder_sent, 'd-M-Y') . '</b><br>';
         }
         echo 'Last IP address <b>' . $item->ip_address . '</b><br>';
-        echo 'Status <b>' . $item->state . '</b><br>';
+        echo 'Status ' . $item->state . '<b>';
+        if ($item->state == 1) {
+            echo ' Active';
+        } else {
+            echo ' Inactive';
+        }
+        echo '</b><br>';
         echo '<h2>Audit details</h2>';
 
         $sql = "SELECT date_format(a.created,'%d/%m/%y') as 'Date', ";
@@ -1565,37 +1621,27 @@ class Mailhelper {
         $this->message = $message;
     }
 
-    private function updateDate($mailshot_id, $date_field) {
-        $db = Factory::getDbo();
-        $query = $db->getQuery(true);
-
-//        $dateTimeNow = new DateTime('NOW');
+    public function updateDate($mailshot_id, $date_field) {
         $dateTimeNow = Factory::getDate()->toSql();
-
-        $fields = array(
-            $db->quoteName($date_field) . '=' . $db->quote($dateTimeNow)
-        );
-
-// Conditions for which records should be updated.
-        $conditions = array(
-            $db->quoteName('id') . ' = ' . $db->quote($mailshot_id)
-        );
-        $query->update($db->quoteName('#__ra_mail_shots'))->set($fields)->where($conditions);
-
-        $db->setQuery($query);
-        if ($db->execute()) {
-            return 1;
+        $sql = 'UPDATE #__ra_mail_shots SET ';
+        $sql .= $this->db->quoteName($date_field) . '=' . $this->db->quote($dateTimeNow);
+        $sql .= ' WHERE ' . $this->db->quoteName('id') . ' = ' . $this->db->quote($mailshot_id);
+        if ($this->toolsHelper->executeCommand($sql)) {
+            return true;
+        } else {
+            return false;
         }
-        $this->message = "Unable to set date";
-        return 0;
     }
 
     public function updateOutstanding($maillist_id, $value) {
         $sql = 'UPDATE #__ra_mail_lists ';
-        $sql .= 'SET emails_outstanding=' . $value;
-        $sql .= ' WHERE id=' . $maillist_id;
-        //       die($sql);
-        $this->toolsHelper->executeCommand($sql);
+        $sql .= 'SET emails_outstanding=' . (INT) $value;
+        $sql .= ' WHERE id=' . (INT) $maillist_id;
+        if ($this->toolsHelper->executeCommand($sql)) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public function updateSubscription($list_id, $user_id, $record_type, $method_id, $state) {

@@ -10,6 +10,7 @@
  * 10/09/24 CB redirect to mail_lsts on save and cancel
  * 12/10/24 CB Use literal for Save message
  * 30/03/26 CB/GPT-4.1 savecontinue added, pass list_id back to edit screen
+ * 24/06/26 CB sendDraft
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Controller;
@@ -17,6 +18,7 @@ namespace Ramblers\Component\Ra_mailman\Site\Controller;
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Application\SiteApplication;
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Multilanguage;
 use Joomla\CMS\Language\Text;
@@ -25,6 +27,7 @@ use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Utilities\ArrayHelper;
 use Joomla\CMS\MVC\Model\BaseDatabaseModel;
+use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 
 /**
  * Mailshot class.
@@ -104,7 +107,7 @@ class MailshotformController extends FormController {
         // Validate the posted data.
         $data = $model->validate($form, $data);
         $list_id = $data['mail_list_id'];
-
+        $mailshot_id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
         // Check for errors.
         if ($data === false) {
             // Get the validation messages.
@@ -127,7 +130,7 @@ class MailshotformController extends FormController {
             // Redirect back to the edit screen.
             $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
             $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
-            $target .= '&list_id=' . $list_id;  
+            $target .= '&list_id=' . $list_id;
             $this->setRedirect(Route::_($target, false));
 
             $this->redirect();
@@ -162,7 +165,13 @@ class MailshotformController extends FormController {
         if (!empty($return)) {
             $this->setMessage(Text::_('Mailshot saved successfully'));
         }
-
+        // See if draft email is to be sent
+        $params = ComponentHelper::getParams('com_ra_mailman');
+        $draft_mailshot = $params->get('draft_mailshot', 'N');
+        if ($draft_mailshot == 'Y') {
+            $mailHelper = new Mailhelper;
+            $mailHelper->sendDraft($mailshot_id);
+        }
         $menu = Factory::getApplication()->getMenu();
         $item = $menu->getActive();
         $url = (empty($item->link) ? 'index.php?option=com_ra_mailman&view=mail_lsts' : $item->link);
@@ -175,93 +184,94 @@ class MailshotformController extends FormController {
         $this->postSaveHook($model, $data);
     }
 
-         /**
-         * Custom save and continue editing action.
-         *
-         * Saves the data and redisplays the edit form for continued editing.
-         */
-        public function savecontinue($key = NULL, $urlVar = NULL) {
-            // Check for request forgeries.
-            $this->checkToken();
+    /**
+     * Custom save and continue editing action.
+     *
+     * Saves the data and redisplays the edit form for continued editing.
+     */
+    public function savecontinue($key = NULL, $urlVar = NULL) {
+        // Check for request forgeries.
+        $this->checkToken();
 
-            // Initialise variables.
-            $model = $this->getModel('Mailshotform', 'Site');
+        // Initialise variables.
+        $model = $this->getModel('Mailshotform', 'Site');
 
-            // Get the user data.
-            $data = $this->input->get('jform', array(), 'array');
-            $list_id = $data['mail_list_id'];
+        // Get the user data.
+        $data = $this->input->get('jform', array(), 'array');
+        $list_id = $data['mail_list_id'];
 
-            // Validate the posted data.
-            $form = $model->getForm();
-            if (!$form) {
-                throw new \Exception($model->getError(), 500);
-            }
+        // Validate the posted data.
+        $form = $model->getForm();
+        if (!$form) {
+            throw new \Exception($model->getError(), 500);
+        }
 
-            // Send an object which can be modified through the plugin event
-            $objData = (object) $data;
-            $this->app->triggerEvent(
+        // Send an object which can be modified through the plugin event
+        $objData = (object) $data;
+        $this->app->triggerEvent(
                 'onContentNormaliseRequestData',
                 array($this->option . '.' . $this->context, $objData, $form)
-            );
-            $data = (array) $objData;
+        );
+        $data = (array) $objData;
 
-            // Validate the posted data.
-            $data = $model->validate($form, $data);
+        // Validate the posted data.
+        $data = $model->validate($form, $data);
 
-            // Check for errors.
-            if ($data === false) {
-                // Get the validation messages.
-                $errors = $model->getErrors();
-                for ($i = 0, $n = count($errors); $i < $n && $i < 3; $i++) {
-                    if ($errors[$i] instanceof \Exception) {
-                        $this->app->enqueueMessage($errors[$i]->getMessage(), 'warning');
-                    } else {
-                        $this->app->enqueueMessage($errors[$i], 'warning');
-                    }
+        // Check for errors.
+        if ($data === false) {
+            // Get the validation messages.
+            $errors = $model->getErrors();
+            for ($i = 0, $n = count($errors); $i < $n && $i < 3; $i++) {
+                if ($errors[$i] instanceof \Exception) {
+                    $this->app->enqueueMessage($errors[$i]->getMessage(), 'warning');
+                } else {
+                    $this->app->enqueueMessage($errors[$i], 'warning');
                 }
-                $jform = $this->input->get('jform', array(), 'ARRAY');
-                $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $jform);
-                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
-                $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
-                $target .= '&list_id=' . $list_id;      
-                $this->setRedirect(Route::_($target, false));
-                $this->redirect();
             }
-
-            // Attempt to save the data.
-            $return = $model->save($data);
-
-            // Check for errors.
-            if ($return === false) {
-                $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $data);
-                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
-                $this->setMessage(Text::sprintf('Save failed', $model->getError()), 'warning');
-                $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
-                $target .= '&list_id=' . $list_id;
-                $this->setRedirect(Route::_($target, false));
-                $this->redirect();
-            }
-
-            // Check in the profile.
-            if ($return) {
-                $model->checkin($return);
-            }
-
-            // Keep the profile id in the session for continued editing.
-            $this->app->setUserState('com_ra_mailman.edit.mailshot.id', $return);
-
-            // Set success message and redirect back to the edit form.
-            $this->setMessage(Text::_('Mailshot saved successfully'));
-            $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $return;
+            $jform = $this->input->get('jform', array(), 'ARRAY');
+            $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $jform);
+            $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+            $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
             $target .= '&list_id=' . $list_id;
             $this->setRedirect(Route::_($target, false));
-
-            // Flush the data from the session.
-            $this->app->setUserState('com_ra_mailman.edit.mailshot.data', null);
-
-            // Invoke the postSave method to allow for the child class to access the model.
-            $this->postSaveHook($model, $data);
+            $this->redirect();
         }
+
+        // Attempt to save the data.
+        $return = $model->save($data);
+
+        // Check for errors.
+        if ($return === false) {
+            $this->app->setUserState('com_ra_mailman.edit.mailshot.data', $data);
+            $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+            $this->setMessage(Text::sprintf('Save failed', $model->getError()), 'warning');
+            $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $id;
+            $target .= '&list_id=' . $list_id;
+            $this->setRedirect(Route::_($target, false));
+            $this->redirect();
+        }
+
+        // Check in the profile.
+        if ($return) {
+            $model->checkin($return);
+        }
+
+        // Keep the profile id in the session for continued editing.
+        $this->app->setUserState('com_ra_mailman.edit.mailshot.id', $return);
+
+        // Set success message and redirect back to the edit form.
+        $this->setMessage(Text::_('Mailshot saved successfully'));
+        $target = 'index.php?option=com_ra_mailman&view=mailshotform&layout=edit&id=' . $return;
+        $target .= '&list_id=' . $list_id;
+        $this->setRedirect(Route::_($target, false));
+
+        // Flush the data from the session.
+        $this->app->setUserState('com_ra_mailman.edit.mailshot.data', null);
+
+        // Invoke the postSave method to allow for the child class to access the model.
+        $this->postSaveHook($model, $data);
+    }
+
     /**
      * Method to abort current operation
      *

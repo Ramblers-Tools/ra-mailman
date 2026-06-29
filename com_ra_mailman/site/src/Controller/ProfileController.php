@@ -227,9 +227,6 @@ class ProfileController extends FormController {
         echo '<h2>Details for Subscription</h2>';
         $objMailHelper = new Mailhelper;
         $objMailHelper->showSubscriptionDetails($id);
-        // duff http://localhost//index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=1070
-        // OK   http://localhost/index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=1070
-        //
 //        $back = '/index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=' . $menu_id;
         $back = 'index.php?option=com_ra_mailman&view=profile&layout=subscriptions&Itemid=' . $menu_id;
         echo $this->toolsHelper->backButton($back);

@@ -85,7 +85,7 @@ class ProfilesModel extends ListModel
 			->where('(u.block = 0 OR u.block IS NULL)')
 			->where('COALESCE(NULLIF(u.email, ' . $db->quote('') . '), p.email) <> ' . $db->quote(''));
 
-		$search = $this->getState('filter.search');
+		$search = $this->getSearchTerm();
 
 		if ($search === '') {
 			$query->where('1 = 0');
@@ -110,5 +110,32 @@ class ProfilesModel extends ListModel
 		$query->order($db->escape('p.preferred_name ASC'));
 
 		return $query;
+	}
+
+	private function getSearchTerm(): string
+	{
+		$search = trim((string) $this->getState('filter.search', ''));
+
+		if ($search !== '') {
+			return $search;
+		}
+
+		$app = Factory::getApplication();
+		$filter = $app->input->get('filter', array(), 'array');
+		$search = trim($app->input->getString('filter_search', ''));
+
+		if ($search === '' && isset($filter['search'])) {
+			$search = trim((string) $filter['search']);
+		}
+
+		if ($search === '') {
+			$search = trim($app->input->getString('name', ''));
+		}
+
+		if ($search === '') {
+			$search = trim($app->input->getString('q', ''));
+		}
+
+		return $search;
 	}
 }

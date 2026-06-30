@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>webmaster@bigley.me.uk</authorEmail>
 	<authorUrl>https://ramblerseastcheshire.org.uk/</authorUrl>
-	<version>1.0.19</version>
+	<version>1.0.20</version>
 	<description>East Cheshire Ramblers mailman component.</description>
 	<namespace path="src">Ramblers\Component\Ra_mailman</namespace>
 	<namespace path="api/src">Ramblers\Component\Ra_mailman\Api</namespace>

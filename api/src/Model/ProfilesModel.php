@@ -15,6 +15,8 @@ use Joomla\CMS\MVC\Model\ListModel;
 
 class ProfilesModel extends ListModel
 {
+	private const ROLE_NAME_PATTERN = '/^(webmaster|admin|administrator|chair|chairman|secretary|treasurer|membership secretary|walks coordinator|walks editor|walks programme|programme secretary|newsletter|social media)\s+|\s+(webmaster|admin|administrator|chair|chairman|secretary|treasurer|membership secretary|walks coordinator|walks editor|walks programme|programme secretary|newsletter|social media)$/i';
+
 	public function __construct($config = array())
 	{
 		if (empty($config['filter_fields'])) {
@@ -112,6 +114,43 @@ class ProfilesModel extends ListModel
 		return $query;
 	}
 
+	public function getItems()
+	{
+		$items = parent::getItems();
+
+		if (empty($items)) {
+			return $items;
+		}
+
+		$search = $this->normalizeName($this->getSearchTerm());
+
+		if ($search === '') {
+			return array();
+		}
+
+		$personalMatches = array_values(
+			array_filter(
+				$items,
+				function ($item) use ($search) {
+					return $this->isPersonalNameMatch($item, $search);
+				}
+			)
+		);
+
+		if (!empty($personalMatches)) {
+			return $personalMatches;
+		}
+
+		return array_values(
+			array_filter(
+				$items,
+				function ($item) {
+					return !$this->hasRoleWrappedName($item);
+				}
+			)
+		);
+	}
+
 	private function getSearchTerm(): string
 	{
 		$search = trim((string) $this->getState('filter.search', ''));
@@ -137,5 +176,57 @@ class ProfilesModel extends ListModel
 		}
 
 		return $search;
+	}
+
+	private function isPersonalNameMatch(object $item, string $search): bool
+	{
+		foreach ($this->candidateNames($item) as $name) {
+			if ($this->hasRoleLabel($name)) {
+				continue;
+			}
+
+			if ($this->normalizeName($name) === $search) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function hasRoleWrappedName(object $item): bool
+	{
+		foreach ($this->candidateNames($item) as $name) {
+			if ($this->hasRoleLabel($name)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function candidateNames(object $item): array
+	{
+		return array_filter(
+			array(
+				$item->preferred_name ?? '',
+				$item->full_name ?? '',
+				$item->name ?? '',
+			),
+			function ($name) {
+				return trim((string) $name) !== '';
+			}
+		);
+	}
+
+	private function hasRoleLabel(string $name): bool
+	{
+		return preg_match(self::ROLE_NAME_PATTERN, $this->normalizeName($name)) === 1;
+	}
+
+	private function normalizeName(string $name): string
+	{
+		$name = trim(preg_replace('/\s+/', ' ', $name));
+
+		return mb_strtolower($name);
 	}
 }

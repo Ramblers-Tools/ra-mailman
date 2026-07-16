@@ -11,7 +11,7 @@
 		<downloads>
 			<downloadurl type="full" format="zip">https://github.com/Ramblers-Tools/com_ra_mailman/releases/download/v1.0.18/com_ra_mailman-1.0.18.zip</downloadurl>
 		</downloads>
-		<sha256>f72547d11b45adab0f143a262d202806d411f5e8c5bb34337f9819addc9f0e56</sha256>
+		<sha256>a43c005faa91acab4518e56c7f48b0a8a72248a54c936b36c99e3c7542eff4ac</sha256>
 		<targetplatform name="joomla" version="5.*"/>
 	</update>
 </updates>

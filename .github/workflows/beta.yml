@@ -1,0 +1,68 @@
+name: Beta pre-release
+
+on:
+  push:
+    branches:
+      - beta
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from package manifest
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<version>)[^<]+' pkg_ra_mailman/pkg_ra_mailman.xml | head -1)
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building beta for v$VERSION"
+
+      - name: Build extension zips
+        run: |
+          mkdir -p dist/packages
+
+          # com_ra_mailman
+          cd com_ra_mailman
+          zip -r ../dist/packages/com_ra_mailman.zip .
+          cd ..
+
+          # mod_ra_mailman
+          cd mod_ra_mailman
+          zip -r ../dist/packages/mod_ra_mailman.zip .
+          cd ..
+
+          # plg_ra_mailman
+          cd plg_ra_mailman
+          zip -r ../dist/packages/plg_ra_mailman.zip .
+          cd ..
+
+      - name: Build package zip
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          mkdir -p dist/pkg
+
+          cp pkg_ra_mailman/pkg_ra_mailman.xml dist/pkg/pkg_ra_mailman.xml
+
+          mkdir -p dist/pkg/packages
+          cp dist/packages/com_ra_mailman.zip dist/pkg/packages/
+          cp dist/packages/mod_ra_mailman.zip dist/pkg/packages/
+          cp dist/packages/plg_ra_mailman.zip dist/pkg/packages/
+
+          cd dist/pkg
+          zip -r ../pkg_ra_mailman-${VERSION}-beta.zip .
+          cd ../..
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}-beta
+          name: v${{ steps.version.outputs.VERSION }} (beta)
+          prerelease: true
+          body: |
+            Beta build from the `beta` branch. For testing only — Joomla auto-update will not offer this build to production sites.
+          files: dist/pkg_ra_mailman-${{ steps.version.outputs.VERSION }}-beta.zip

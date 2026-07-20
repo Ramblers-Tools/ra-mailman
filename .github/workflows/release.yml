@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from package manifest
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<version>)[^<]+' pkg_ra_mailman/pkg_ra_mailman.xml | head -1)
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building release for v$VERSION"
+
+      - name: Ensure SQL update file exists for this version
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          SQL_FILE="com_ra_mailman/administrator/sql/updates/mysql/${VERSION}.sql"
+          if [ ! -f "$SQL_FILE" ]; then
+            mkdir -p "$(dirname "$SQL_FILE")"
+            echo "-- No schema changes in ${VERSION}" > "$SQL_FILE"
+            echo "Created empty $SQL_FILE"
+          else
+            echo "$SQL_FILE already exists"
+          fi
+
+      - name: Build extension zips
+        run: |
+          mkdir -p dist/packages
+
+          # com_ra_mailman
+          cd com_ra_mailman
+          zip -r ../dist/packages/com_ra_mailman.zip .
+          cd ..
+
+          # mod_ra_mailman
+          cd mod_ra_mailman
+          zip -r ../dist/packages/mod_ra_mailman.zip .
+          cd ..
+
+          # plg_ra_mailman
+          cd plg_ra_mailman
+          zip -r ../dist/packages/plg_ra_mailman.zip .
+          cd ..
+
+      - name: Build package zip
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          mkdir -p dist/pkg
+
+          cp pkg_ra_mailman/pkg_ra_mailman.xml dist/pkg/pkg_ra_mailman.xml
+
+          mkdir -p dist/pkg/packages
+          cp dist/packages/com_ra_mailman.zip dist/pkg/packages/
+          cp dist/packages/mod_ra_mailman.zip dist/pkg/packages/
+          cp dist/packages/plg_ra_mailman.zip dist/pkg/packages/
+
+          cd dist/pkg
+          zip -r ../pkg_ra_mailman-${VERSION}.zip .
+          cd ../..
+
+      - name: Compute sha256
+        id: sha
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          SHA=$(sha256sum dist/pkg_ra_mailman-${VERSION}.zip | awk '{print $1}')
+          echo "SHA=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: v${{ steps.version.outputs.VERSION }}
+          prerelease: false
+          body: |
+            Full release of RA Mailman v${{ steps.version.outputs.VERSION }}.
+
+            Install or update via Joomla Extensions → Install, or use the Joomla auto-update system if you have a previous version installed.
+          files: dist/pkg_ra_mailman-${{ steps.version.outputs.VERSION }}.zip
+
+      - name: Update update manifest
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          SHA=${{ steps.sha.outputs.SHA }}
+          DOWNLOAD_URL="https://github.com/Ramblers-Tools/ra-mailman/releases/download/v${VERSION}/pkg_ra_mailman-${VERSION}.zip"
+          INFO_URL="https://github.com/Ramblers-Tools/ra-mailman/releases/tag/v${VERSION}"
+
+          cat > updates/pkg_ra_mailman.xml <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <updates>
+              <update>
+                  <name>pkg_ra_mailman</name>
+                  <description>RA Mailman package (component, module, plugin)</description>
+                  <element>pkg_ra_mailman</element>
+                  <type>package</type>
+                  <client>site</client>
+                  <version>${VERSION}</version>
+                  <infourl title="Release notes">${INFO_URL}</infourl>
+                  <downloads>
+                      <downloadurl type="full" format="zip">${DOWNLOAD_URL}</downloadurl>
+                  </downloads>
+                  <sha256>${SHA}</sha256>
+                  <targetplatform name="joomla" version="5.*"/>
+              </update>
+          </updates>
+          EOF
+
+      - name: Open PR to update manifest
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-manifest-v${{ steps.version.outputs.VERSION }}
+          base: main
+          commit-message: "Update manifest for v${{ steps.version.outputs.VERSION }}"
+          title: "Update update manifest for v${{ steps.version.outputs.VERSION }}"
+          body: |
+            Automated update of `updates/pkg_ra_mailman.xml` following the v${{ steps.version.outputs.VERSION }} release.
+
+            Sets the correct sha256 so Joomla auto-update can verify the package.
+          delete-branch: true

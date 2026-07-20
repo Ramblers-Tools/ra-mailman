@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="package" method="upgrade">
+    <name>pkg_ra_mailman</name>
+    <packagename>ra_mailman</packagename>
+    <author>Ramblers Tools</author>
+    <creationDate>2026</creationDate>
+    <copyright>2026 Ramblers Tools</copyright>
+    <license>GNU General Public License version 3 or later; see LICENSE.txt</license>
+    <authorEmail>support@ramblers.tools</authorEmail>
+    <authorUrl>https://ramblers.tools</authorUrl>
+    <version>1.0.0</version>
+    <description>Installs the RA Mailman component, module and system plugin for Ramblers groups</description>
+    <changelogurl>https://raw.githubusercontent.com/Ramblers-Tools/ra-mailman/main/changelog.xml</changelogurl>
+    <files folder="packages">
+        <file type="component" id="com_ra_mailman">com_ra_mailman.zip</file>
+        <file type="module" id="mod_ra_mailman" client="site">mod_ra_mailman.zip</file>
+        <file type="plugin" id="plg_ra_mailman" group="console">plg_ra_mailman.zip</file>
+    </files>
+    <updateservers>
+        <server type="extension" name="RA Mailman Update Server">https://raw.githubusercontent.com/Ramblers-Tools/ra-mailman/main/updates/pkg_ra_mailman.xml</server>
+    </updateservers>
+</extension>

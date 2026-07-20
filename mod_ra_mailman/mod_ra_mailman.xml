@@ -105,7 +105,4 @@
             </fieldset>
         </fields>
     </config>
-    <updateservers>
-        <server type="extension" priority="1" name="com_ra_mailman">https://www.component-creator.com/index.php?task=builder.preupdatecheckhook&amp;option=com_combuilder&amp;component=NzQ2NjgtMjEyNzk4</server>
-    </updateservers>
 </extension>

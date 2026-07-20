@@ -242,7 +242,8 @@ class UserHelper {
 // Prepare the insert query.
             $db = Factory::getDbo();
             $query = $db->getQuery(true);
-            $query->set('id =' . $db->quote($this->user_id))
+            $query->set('member_id =' . $db->quote($this->user_id))
+                    ->set('id =' . $db->quote($this->user_id))
                     ->set('home_group =' . $db->quote($this->group_code))
 //                    ->set('groups_to_follow  =' . $db->quote($group_code))
                     ->set('preferred_name =' . $db->quote($this->preferred_name))

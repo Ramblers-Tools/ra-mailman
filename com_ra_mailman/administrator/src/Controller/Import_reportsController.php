@@ -42,8 +42,8 @@ class Import_reportsController extends AdminController {
     protected $app;
     protected $toolsHelper;
 
-    function __construct() {
-        parent::__construct();
+    function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->db = Factory::getDbo();
         $this->toolsHelper = new ToolsHelper;
         $this->app = Factory::getApplication();

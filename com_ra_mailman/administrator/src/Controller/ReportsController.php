@@ -49,8 +49,8 @@ class ReportsController extends FormController {
     protected $subheading;
     protected $toolsHelper;
 
-    public function __construct() {
-        parent::__construct();
+    public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->db = Factory::getDbo();
         $this->toolsHelper = new ToolsHelper;
         $this->mailHelper = new MailHelper;

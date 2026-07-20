@@ -37,8 +37,8 @@ class SubscriptionController extends FormController {
     protected $objHelper;
     protected $view_list = 'subscriptions';
 
-    public function __construct() {
-        parent::__construct();
+    public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         //        $this->db = Factory::getDbo();
         $this->objHelper = new ToolsHelper;
         $this->app = Factory::getApplication();

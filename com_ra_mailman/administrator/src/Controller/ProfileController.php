@@ -35,8 +35,8 @@ class ProfileController extends FormController {
     protected $view_list = 'profiles';
     private $toolsHelper;
 
-    public function __construct() {
-        parent::__construct();
+    public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->toolsHelper = new ToolsHelper;
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');

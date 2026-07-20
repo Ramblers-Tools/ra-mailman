@@ -37,8 +37,8 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
  */
 class SubscriptionsController extends AdminController {
 
-    function __construct() {
-        parent::__construct();
+    function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->toolsHelper = new ToolsHelper;
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');

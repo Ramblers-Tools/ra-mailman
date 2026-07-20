@@ -170,20 +170,22 @@ class Mailhelper {
             $text .= '</ul>';
         }
         $text .= '<h4>Scope ' . $subheading . '</h4>';
-        $canDo = ContentHelper::getActions('com_ra_members');
-        if ($canDo->get('core.create')) {
-            $text .= '<h3>Members</h3>';
-            $text .= '<ul>';
+        if (ComponentHelper::isEnabled('com_ra_members', true)) {
+            $canDo = ContentHelper::getActions('com_ra_members');
+            if ($canDo->get('core.create')) {
+                $text .= '<h3>Members</h3>';
+                $text .= '<ul>';
 
-            $text .= '<li><a href="index.php?option=com_ra_members&view=members" target="_self">Members</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_members&amp;view=roles" target="_self">Roles</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_tools&amp;view=users" target="_self">Users</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_members&amp;view=reports" target="_self">Membership Reports</a></li>';
-            $versions = $this->toolsHelper->getVersions('com_ra_members');
-            $text .= '<li><a href="index.php?option=com_config&view=component&component=com_ra_members" target="_self">';
-            $text .= "Configure system defaults (version " . $versions->component . ")</a></li>" . PHP_EOL;
+                $text .= '<li><a href="index.php?option=com_ra_members&view=members" target="_self">Members</a></li>';
+                $text .= '<li><a href="index.php?option=com_ra_members&amp;view=roles" target="_self">Roles</a></li>';
+                $text .= '<li><a href="index.php?option=com_ra_tools&amp;view=users" target="_self">Users</a></li>';
+                $text .= '<li><a href="index.php?option=com_ra_members&amp;view=reports" target="_self">Membership Reports</a></li>';
+                $versions = $this->toolsHelper->getVersions('com_ra_members');
+                $text .= '<li><a href="index.php?option=com_config&view=component&component=com_ra_members" target="_self">';
+                $text .= "Configure system defaults (version " . $versions->component . ")</a></li>" . PHP_EOL;
 //            $text .= '<li><a href="index.php?option=com_ra_mailman&task=profiles.load" target="_self">Test data load</a></li>';
-            $text .= '</ul>';
+                $text .= '</ul>';
+            }
         }
 
         $text .= '<h3>Mail Manager</h3>';

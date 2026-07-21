@@ -11,10 +11,10 @@
     <creationDate>25 May 2026</creationDate>
     <copyright>Copyright (C) 2022. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <author>Charlie Bigley</author>
-    <authorEmail>webmaster@bigley.me.uk</authorEmail>
-    <authorUrl>https://docs.stokeandnewcastleramblers.org.uk</authorUrl>
-    <version>4.7.3</version>
+    <author>Ramblers Tools</author>
+    <authorEmail>support@ramblers.tools</authorEmail>
+    <authorUrl>https://ramblers.tools</authorUrl>
+    <version>5.0.0</version>
     <description>Support for Mailing lists</description>
     <namespace path="src">Ramblers\Component\Ra_mailman</namespace>
     <!-- scriptfile>script.php</scriptfile -->

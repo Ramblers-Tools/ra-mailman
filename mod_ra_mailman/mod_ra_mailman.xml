@@ -4,10 +4,10 @@
     <creationDate>2024-09-10</creationDate>
     <copyright>2024 Charlie Bigley</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <author>Charlie Bigley</author>
-    <authorEmail>webmaster@bigley.me.uk</authorEmail>
-    <authorUrl>http://</authorUrl>
-    <version>CVS: 1.0.0</version>
+    <author>Ramblers Tools</author>
+    <authorEmail>support@ramblers.tools</authorEmail>
+    <authorUrl>https://ramblers.tools</authorUrl>
+    <version>5.0.0</version>
     <description>MOD_RA_MAILMAN_DESCRIPTION</description>
     <namespace path="src">Ramblers\Module\Ra_mailman</namespace>
     

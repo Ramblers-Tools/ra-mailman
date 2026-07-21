@@ -9,11 +9,11 @@
 <extension type="plugin" group="console" method="upgrade">
 	<name>plg_system_ra_mailman</name>
 	<description>Ramblers plugin to send outstanding emails</description>
-	<version>1.1.0</version>
+	<version>5.0.0</version>
 	<creationDate>19 May 2026</creationDate>
-	<author>Charlie Bigley</author>
-    <authorEmail>webmaster@bigley.me.uk</authorEmail>
-    <authorUrl>staffordshireramblers.org.uk</authorUrl>
+	<author>Ramblers Tools</author>
+    <authorEmail>support@ramblers.tools</authorEmail>
+    <authorUrl>https://ramblers.tools</authorUrl>
 	<copyright>Copyleft 2025 Charlie Bigley</copyright>
 	<license>GNU General Public License version 3, or later</license>	
 	<namespace path="src">Ramblers\Plugin\System\Ra_mailman</namespace>

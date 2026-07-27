@@ -272,7 +272,7 @@ class Mailhelper {
         $mailshot_body .= '<div style="background: ' . $setup->colour_body;
         $mailshot_body .= '; padding-top: 10px; padding-bottom: 10px; ">';
 
-        $mailshot_body .= $item->body;
+        $mailshot_body .= $this->embedBodyImages($item->body);
 
         $mailshot_body .= '<br>From ';
         if ($signatory == $item->Owner) {
@@ -672,6 +672,24 @@ class Mailhelper {
             $mime = ['png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'][$ext] ?? 'image/jpeg';
         }
         return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+    }
+
+    private function embedBodyImages($html) {
+        // Images pasted/inserted into the mailshot's rich-text editor are stored as relative
+        // <img src="images/..."> references, which the API mail path (SmtpHelper) cannot resolve
+        // or attach - inline them as base64 so they survive both send paths.
+        return preg_replace_callback('/(<img\b[^>]*\bsrc=)(["\'])([^"\']+)(\2)/i', function ($matches) {
+            $src = trim($matches[3]);
+            if ($src === '' || preg_match('#^(?:data:|https?://|cid:)#i', $src)) {
+                return $matches[0];
+            }
+            $relative = ltrim((string) parse_url($src, PHP_URL_PATH), '/');
+            $path = JPATH_ROOT . '/' . $relative;
+            if (strpos($relative, '..') !== false || !file_exists($path)) {
+                return $matches[0];
+            }
+            return $matches[1] . $matches[2] . $this->encodeImageAsDataUri($path) . $matches[4];
+        }, $html);
     }
 
     public function getOwner_id($list_id) {

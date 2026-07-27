@@ -103,10 +103,8 @@ class Mailhelper {
 
 //      Add the logo block if a file is configured.
         if (($logo != '') && file_exists(JPATH_ROOT . $logo)) {
-            $image_data = file_get_contents(JPATH_ROOT . $logo);
-            $encoded = base64_encode($image_data);
             $header .= '<a href="' . $setup->website . '" style="flex-shrink: 0; display: flex;">';
-            $header .= '<img src="data:image/jpeg;base64,' . $encoded . '" ';
+            $header .= '<img src="' . $this->encodeImageAsDataUri(JPATH_ROOT . $logo) . '" ';
             $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%; height: auto;" ';
             $header .= 'alt="Logo">';
             $header .= '</a>';
@@ -287,14 +285,16 @@ class Mailhelper {
         }
 
 
-        // Collect any attachments for the outgoing email.
+        // Inline any attached images directly into the body as base64 data URIs.
         if ($item->attachment != '') {
             $attach_array = explode(',', $item->attachment);
             foreach ($attach_array as $file) {
                 $working_file = JPATH_ROOT . '/images/com_ra_mailman/' . $file;
-                Factory::getApplication()->enqueueMessage('Attaching file "' . $file, 'notice');
                 if (file_exists($working_file)) {
-                    $this->attachments[] = $working_file;
+                    $mailshot_body .= '<div style="margin: 12px 0;">';
+                    $mailshot_body .= '<img src="' . $this->encodeImageAsDataUri($working_file) . '" ';
+                    $mailshot_body .= 'alt="' . htmlspecialchars($file, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100%; height: auto;">';
+                    $mailshot_body .= '</div>';
                 } else {
                     $mailshot_body .= 'File ' . $file . ' not found<br>';
                     $this->message .= $working_file . ' not found';
@@ -663,6 +663,15 @@ class Mailhelper {
         }
 
         return '/images/com_ra_mailman/' . ltrim($logo_file, '/');
+    }
+
+    private function encodeImageAsDataUri($path) {
+        $mime = @getimagesize($path)['mime'] ?? null;
+        if (!$mime) {
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $mime = ['png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'][$ext] ?? 'image/jpeg';
+        }
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
     }
 
     public function getOwner_id($list_id) {

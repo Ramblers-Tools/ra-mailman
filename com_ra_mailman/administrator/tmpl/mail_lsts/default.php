@@ -117,7 +117,7 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                     </thead>
                     <tfoot>
                         <tr>
-                            <td colspan="11">
+                            <td colspan="<?php echo $canEdit ? 14 : 13; ?>">
                                 <?php echo $this->pagination->getListFooter(); ?>
                             </td>
                         </tr>

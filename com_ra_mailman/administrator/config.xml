@@ -19,9 +19,9 @@
                default="Sent from xxx Ramblers using the MailMan software package" 
                label="Email Header" 
                description="Text at the top of all messages"/>
-        <field name="email_footer" 
-               filter="safehtml" 
-               type="textarea" 
+        <field name="email_footer"
+               filter="raw"
+               type="textarea"
                default="The Ramblers, 13 Dirty Lane, London SE1 9PA" 
                label="System footer" 
                required="true"

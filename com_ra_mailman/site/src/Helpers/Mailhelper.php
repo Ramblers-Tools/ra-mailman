@@ -1089,8 +1089,6 @@ class Mailhelper {
         }
 //      Find the email address of the current user
         $user_email = $user->email;
-        $recipient = $user_email;
-        $message = 'Draft email sent to ';
 
 //      Find the email address of the list's owner
         $sql = 'SELECT ms.reply_to, u.email FROM #__ra_mail_shots AS ms ';
@@ -1101,16 +1099,12 @@ class Mailhelper {
         $owner_email = $item->email;
         $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
-        if (count($this->attachments) == 0) {
-            $message .= '(no attachment) ';
-        } else {
-            $message .= '(' . count($this->attachments) . ' attachment(s)) ';
-        }
+        $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');
 
         $count = 0;
         // Send message to the editor of the message
         if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
-            $message .= ', editor ' . $recipient . ', reply to ' . $reply_to;
+            $message = 'Draft email sent to ' . $user_email . ' ' . $attachmentNote . ', reply to ' . $reply_to;
             $count++;
         } else {
             $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';

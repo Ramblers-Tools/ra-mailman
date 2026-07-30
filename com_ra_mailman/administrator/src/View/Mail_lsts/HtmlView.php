@@ -32,6 +32,7 @@ use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
 use \Joomla\CMS\Form\Form;
 use \Joomla\CMS\HTML\Helpers\Sidebar;
+use \Joomla\CMS\Uri\Uri;
 use \Joomla\CMS\User\CurrentUserInterface;
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
@@ -283,6 +284,30 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
                 }
                 return $this->toolsHelper->buildButton($target, $label, False);
             }
+        }
+    }
+
+    protected function scheduleButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor, $label = 'Schedule') {
+        if (($last_mailshot->id > 0) AND is_null($last_mailshot->date_sent) AND is_null($last_mailshot->processing_started) AND (($canEdit) OR ($isAuthor))) {
+            $html = '<button type="button" class="link-button button-p0159" ';
+            $html .= 'onclick="raMailmanOpenSchedule(' . (int) $last_mailshot->id . ', ' . (int) $count_subscribers . ', \'' . rtrim(Uri::root(), '/') . '/administrator/index.php\', \'' . addslashes((string) $last_mailshot->send_after) . '\')">';
+            $html .= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</button>';
+            return $html;
+        }
+    }
+
+    protected function discardButton($last_mailshot) {
+        $target = 'administrator/index.php?option=com_ra_mailman&task=mailshot.discard&mailshot_id=' . $last_mailshot->id;
+        $html = '<a class="link-button button-p0186" href="/' . $target . '" ';
+        $html .= 'onclick="return confirm(\'Discard this mailshot? All its data will be permanently lost.\');">';
+        $html .= 'Discard</a>';
+        return $html;
+    }
+
+    protected function cancelButton($last_mailshot, $canEdit, $isAuthor) {
+        if (($canEdit) OR ($isAuthor)) {
+            $target = 'administrator/index.php?option=com_ra_mailman&task=mailshot.cancelSending&mailshot_id=' . $last_mailshot->id . '&return=mail_lsts';
+            return $this->toolsHelper->buildButton($target, 'Cancel sending', False, 'rosycheeks');
         }
     }
 

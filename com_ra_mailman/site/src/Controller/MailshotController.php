@@ -59,6 +59,72 @@ class MailshotController extends FormController {
         $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');
     }
 
+    public function schedule() {
+        $objApp = Factory::getApplication();
+        $mailshot_id = $objApp->input->getInt('mailshot_id', 0);
+        $total = $objApp->input->getInt('total', 0);
+        $send_at = $objApp->input->getString('send_at', '');
+        $user_id = Factory::getApplication()->getSession()->get('user')->id;
+        if ($user_id == 0) {
+            $objApp->enqueueMessage('You must be logged in to access this function', 'error');
+        } else {
+            $mailHelper = new Mailhelper;
+            $mailHelper->scheduleSend($mailshot_id, $total, $send_at);
+        }
+
+        $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');
+    }
+
+    public function cancelSending() {
+        $objApp = Factory::getApplication();
+        $toolsHelper = new ToolsHelper;
+        $mailshot_id = $objApp->input->getInt('mailshot_id', 0);
+        $sql = 'SELECT l.id, l.emails_outstanding, m.title ';
+        $sql .= 'FROM #__ra_mail_shots AS m ';
+        $sql .= 'INNER JOIN #__ra_mail_lists AS l ON l.id = m.mail_list_id ';
+        $sql .= 'WHERE m.id=' . $mailshot_id;
+        $item = $toolsHelper->getItem($sql);
+        if ($item) {
+            $mailHelper = new Mailhelper;
+            if ($mailHelper->isAuthor($item->id)) {
+                $sql = 'UPDATE #__ra_mail_lists SET emails_outstanding=0 WHERE id=' . $item->id;
+                $toolsHelper->executeCommand($sql);
+
+                // Return the mailshot to draft (edit/send/schedule), not permanently closed -
+                // "cancelled" halts any in-flight batch loop (see Mailhelper::isMailshotCancelled())
+                // without leaving date_sent set, which would make it look like it had actually sent.
+                $sql = 'UPDATE #__ra_mail_shots SET processing_started=NULL, send_after=NULL, is_scheduled=0, cancelled=1 WHERE id=' . $mailshot_id;
+                $toolsHelper->executeCommand($sql);
+
+                $message = 'Mailshot "' . $item->title . '" cancelled. Outstanding count reset from ' . $item->emails_outstanding . ' to 0.';
+                $toolsHelper->createLog('RA Mailman', '27', $mailshot_id, $message);
+                $objApp->enqueueMessage('Sending cancelled. The mailshot has been returned to draft - you can edit, resend, reschedule, or discard it.', 'success');
+            } else {
+                $objApp->enqueueMessage('You are not authorised to cancel this mailshot', 'error');
+            }
+        } else {
+            $objApp->enqueueMessage('No mailshot found for mailshot ID ' . $mailshot_id, 'notice');
+        }
+        $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');
+    }
+
+    public function discard() {
+        $objApp = Factory::getApplication();
+        $toolsHelper = new ToolsHelper;
+        $mailshot_id = $objApp->input->getInt('mailshot_id', 0);
+        $sql = 'SELECT mail_list_id, title FROM #__ra_mail_shots WHERE id=' . $mailshot_id;
+        $item = $toolsHelper->getItem($sql);
+        $mailHelper = new Mailhelper;
+        if ($item && $mailHelper->isAuthor($item->mail_list_id)) {
+            $mailHelper->discardMailshot($mailshot_id);
+            $toolsHelper->createLog('RA Mailman', '28', $mailshot_id, 'Mailshot "' . $item->title . '" discarded');
+            $objApp->enqueueMessage('Mailshot "' . $item->title . '" discarded.', 'success');
+        } else {
+            $objApp->enqueueMessage('Unable to discard mailshot', 'error');
+        }
+        $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');
+    }
+
     public function showMailshot() {
         $objHelper = new ToolsHelper;
         $objApp = Factory::getApplication();

@@ -37,6 +37,7 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 class Mailhelper {
 
+    const SEND_DELAY_MINUTES = 5; // minimum wait after clicking Send before any email is actually dispatched
     public $batch_mode = false; // if true, messages are added to $this->messages instead of enqueued, for display at the end of the batch process
     public $message;
     public $messages;
@@ -603,10 +604,11 @@ class Mailhelper {
                 if ($this->batch_mode) {
                     $message = 'Email setup not found for code ' . $code . ' - using component defaults';
                     $this->messages[] = $message;
+                    return $setup;
                 } else {
                     Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
+                    return false;
                 }
-                return false;
             }
 
             $setup->setup_source = 'Organisation table';
@@ -850,7 +852,7 @@ class Mailhelper {
         // returns an object with details of the most recent mailshot for the given list
         $result = new CMSObject;
         $query = $this->db->getQuery(true);
-        $query->select('mail_list_id,id, date_sent,processing_started,attachment');
+        $query->select('mail_list_id,id, date_sent,processing_started,send_after,is_scheduled,attachment');
         $query->from($this->db->qn('#__ra_mail_shots'));
         $query->where('mail_list_id=' . $list_id);
         $query->order('id DESC');
@@ -864,6 +866,8 @@ class Mailhelper {
             $result->set('id', 0);
             $result->set('date_sent', NULL);
             $result->set('processing_started', NULL);
+            $result->set('send_after', NULL);
+            $result->set('is_scheduled', 0);
             $result->set('date', '');
             $result->set('attachment', '');
         } else {
@@ -872,6 +876,8 @@ class Mailhelper {
             $result->set('id', $item->id);
             $result->set('date_sent', $item->date_sent);
             $result->set('processing_started', $item->processing_started);
+            $result->set('send_after', $item->send_after);
+            $result->set('is_scheduled', (int) $item->is_scheduled);
             if (is_null($item->date_sent)) {
                 if (is_null($item->processing_started)) {
                     // Mailshot is present, but not yet sent
@@ -1000,34 +1006,66 @@ class Mailhelper {
     }
 
     public function send($mailshot_id, $total) {
-        // See if processing can be done on-line
+        // Every send is queued and delayed by SEND_DELAY_MINUTES, whatever the list size,
+        // so the sender has a real window to cancel a mistaken send before anything goes out.
         $this->messages = [];
 
-        $params = ComponentHelper::getParams('com_ra_mailman');
-        $max_emails = $params->get('max_emails', 120);
-        $max_online_send = $params->get('max_online_send', 10);
-        if ($total > $max_online_send) {
-//            Find the list id
-            $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
-            $sql .= 'WHERE ms.id=' . $mailshot_id;
-            $mail_list_id = $this->toolsHelper->getValue($sql);
-            $this->updateOutstanding($mail_list_id, $total);
-            return;
-//               $mailshot_send_message = $params->get('mailshot_send_message', 'Processing for batch job initiated');
-//               Factory::getApplication()->enqueueMessage($mailshot_send_message, 'info');
-        }
-        $this->sendEmails($mailshot_id);
+        // Find the list id
+        $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
+        $sql .= 'WHERE ms.id=' . $mailshot_id;
+        $mail_list_id = $this->toolsHelper->getValue($sql);
 
-        foreach (($this->messages ?? []) as $message) {
-            Factory::getApplication()->enqueueMessage($message, 'info');
-        }
-        if (JDEBUG) {
-            $message = 'After helper sendEmails ' . count($this->messages) . ' messages';
-            $this->toolsHelper->createLog('RA Mailman', '20', $mailshot_id, $message);
-        }
+        $sql = 'UPDATE #__ra_mail_shots SET send_after=DATE_ADD(NOW(), INTERVAL ' . self::SEND_DELAY_MINUTES . ' MINUTE), is_scheduled=0, cancelled=0 ';
+        $sql .= 'WHERE id=' . $mailshot_id;
+        $this->toolsHelper->executeCommand($sql);
+
+        $this->updateOutstanding($mail_list_id, $total);
+
+        $mailshot_send_message = ComponentHelper::getParams('com_ra_mailman')->get('mailshot_send_message', 'Send queued - will go out in ' . self::SEND_DELAY_MINUTES . ' minutes unless cancelled');
+        Factory::getApplication()->enqueueMessage($mailshot_send_message, 'info');
     }
 
-    public function sendDraft($mailshot_id) {
+    /**
+     * Queue a mailshot to go out at a specific future date/time chosen by the user,
+     * instead of the default SEND_DELAY_MINUTES-from-now used by send().
+     *
+     * $send_at is a "Y-m-d H:i" / "Y-m-d\TH:i" (datetime-local input) string, interpreted
+     * as-is by MySQL - it is never passed through PHP date handling, to avoid the same
+     * timezone mismatch that affected the send_after comparison in sendEmails().
+     */
+    public function scheduleSend($mailshot_id, $total, $send_at) {
+        $this->messages = [];
+
+        $normalised = str_replace('T', ' ', trim((string) $send_at));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $normalised)) {
+            Factory::getApplication()->enqueueMessage('Please choose a valid date and time to schedule the send', 'error');
+            return false;
+        }
+
+        // Compared in SQL (against the DB's own NOW()) rather than PHP, to avoid the same
+        // timezone mismatch that affected the send_after gate in sendEmails().
+        $sql = 'SELECT (' . $this->db->quote($normalised) . ' > NOW())';
+        if (!$this->toolsHelper->getValue($sql)) {
+            Factory::getApplication()->enqueueMessage('Please choose a future date and time to schedule the send', 'error');
+            return false;
+        }
+
+        // Find the list id
+        $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
+        $sql .= 'WHERE ms.id=' . (int) $mailshot_id;
+        $mail_list_id = $this->toolsHelper->getValue($sql);
+
+        $sql = 'UPDATE #__ra_mail_shots SET send_after=' . $this->db->quote($normalised) . ', is_scheduled=1, cancelled=0 ';
+        $sql .= 'WHERE id=' . (int) $mailshot_id;
+        $this->toolsHelper->executeCommand($sql);
+
+        $this->updateOutstanding($mail_list_id, $total);
+
+        Factory::getApplication()->enqueueMessage('Mailshot scheduled to send at ' . $normalised, 'info');
+        return true;
+    }
+
+    public function sendDraft($mailshot_id, $selfOnly = false) {
 
         $user = Factory::getApplication()->getSession()->get('user');
         $setup = $this->getEmailSetup();
@@ -1080,7 +1118,7 @@ class Mailhelper {
         }
 //        die('user email ' . $user_email . '<br>' . $this->message);
 //      If current user not the list owner, send another copy to the owner, reply_to = author
-        if ($user_email !== $owner_email) {
+        if (!$selfOnly && $user_email !== $owner_email) {
             if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
                 $message .= ', also sent to the owner at ' . $owner_email;
                 $count++;
@@ -1098,7 +1136,7 @@ class Mailhelper {
         return true;
     }
 
-    public function sendEmails($mailshot_id) { // before version 4.5.1, this was function send
+    public function sendEmails($mailshot_id, $force = false) { // before version 4.5.1, this was function send
 //    This bypasses the check for on-line maximum and is only invoked from send()
 //    if the total number of emails to be sent is less than the on-line maximum
 //
@@ -1107,8 +1145,12 @@ class Mailhelper {
         $this->attachments = [];
 
 //     Get details of the mailshot, the list and the email address of the list's owner
+//     still_queued is evaluated in SQL (against the DB's own NOW()) rather than in PHP,
+//     since send_after is written using MySQL's NOW() and comparing it via Factory::getDate()
+//     in PHP silently applies a timezone conversion, causing a spurious delay of the server's UTC offset.
         $sql = 'SELECT l.id, l.group_code, u.email, ';
-        $sql .= 'ms.processing_started, ms.date_sent, ms.title, ms.event_id, ms.reply_to ';
+        $sql .= 'ms.processing_started, ms.send_after, ms.date_sent, ms.title, ms.event_id, ms.reply_to, ';
+        $sql .= '(ms.send_after IS NOT NULL AND ms.send_after > NOW()) AS still_queued ';
         $sql .= 'FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
@@ -1123,6 +1165,12 @@ class Mailhelper {
         $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
         $mail_list_id = $item->id;
         $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
+
+        if (!$force && $item->still_queued) {
+            $message = 'Mailshot "' . $item->title . '" is queued until ' . $item->send_after . '; send skipped for now';
+            $this->messages[] = $message;
+            return false;
+        }
 
         if ($this->hasMailshotDate($item->date_sent)) {
             $this->messages[] = 'Mailshot "' . $item->title . '" is closed and cannot be restarted (' . $item->date_sent . ')';
@@ -1338,8 +1386,17 @@ class Mailhelper {
     }
 
     private function isMailshotCancelled($mailshot_id) {
-        $sql = 'SELECT date_sent FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id;
-        return $this->hasMailshotDate($this->toolsHelper->getValue($sql));
+        $sql = 'SELECT date_sent, cancelled FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id;
+        $item = $this->toolsHelper->getItem($sql);
+        return $this->hasMailshotDate($item->date_sent) || (bool) $item->cancelled;
+    }
+
+    /**
+     * Permanently delete a mailshot draft. Callers must check authorisation before calling.
+     */
+    public function discardMailshot($mailshot_id) {
+        $sql = 'DELETE FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id;
+        return $this->toolsHelper->executeCommand($sql);
     }
 
     public function sendRenewal($user_id, $list_id = 0) {

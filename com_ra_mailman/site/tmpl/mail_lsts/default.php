@@ -38,7 +38,7 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 HTMLHelper::_('bootstrap.tooltip');
 HTMLHelper::_('behavior.multiselect');
-HTMLHelper::_('formbehavior.chosen', 'select');
+HTMLHelper::_('formbehavior.chosen', 'select:not(.ra-mailman-plain)');
 
 $mailHelper = new Mailhelper;
 $toolsHelper = new ToolsHelper;
@@ -48,6 +48,48 @@ $listDirn = $this->state->get('list.direction');
 // Import CSS
 $wa = $this->document->getWebAssetManager();
 $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
+$this->document->addStyleDeclaration(
+    "#ra-mailman-schedule-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%;" .
+    " background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; }" .
+    "#ra-mailman-schedule-modal .ra-mailman-schedule-box { background:#fff; color:#000; padding:20px;" .
+    " border-radius:6px; min-width:280px; box-shadow:0 2px 12px rgba(0,0,0,0.3); }" .
+    "#ra-mailman-schedule-modal .ra-mailman-schedule-box input[type=date] { width:100%; margin:5px 0; }" .
+    "#ra-mailman-schedule-modal .ra-mailman-schedule-box select.ra-mailman-plain { margin:5px 0; min-width:60px; }"
+);
+$this->document->addScriptDeclaration(
+    "function raMailmanOpenSchedule(mailshotId, total, basePath, existingSendAfter) {" .
+    " var modal = document.getElementById('ra-mailman-schedule-modal');" .
+    " modal.dataset.mailshotId = mailshotId; modal.dataset.total = total; modal.dataset.basePath = basePath;" .
+    " var pad = function(n) { return (n < 10 ? '0' : '') + n; };" .
+    " var d = existingSendAfter ? new Date(existingSendAfter.replace(' ', 'T')) : new Date(Date.now() + 30 * 60000);" .
+    " var today = new Date();" .
+    " var todayStr = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());" .
+    " document.getElementById('ra-mailman-schedule-date').min = todayStr;" .
+    " document.getElementById('ra-mailman-schedule-date').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());" .
+    " var hourSel = document.getElementById('ra-mailman-schedule-hour');" .
+    " var minSel = document.getElementById('ra-mailman-schedule-minute');" .
+    " if (!hourSel.options.length) {" .
+    "  for (var h = 0; h < 24; h++) { var o = document.createElement('option'); o.value = pad(h); o.text = pad(h); hourSel.appendChild(o); }" .
+    "  for (var m = 0; m < 60; m += 5) { var o2 = document.createElement('option'); o2.value = pad(m); o2.text = pad(m); minSel.appendChild(o2); }" .
+    " }" .
+    " hourSel.value = pad(d.getHours());" .
+    " minSel.value = pad(Math.round(d.getMinutes() / 5) * 5 % 60);" .
+    " modal.style.display = 'flex';" .
+    " }" .
+    "function raMailmanCloseSchedule() {" .
+    " document.getElementById('ra-mailman-schedule-modal').style.display = 'none';" .
+    " }" .
+    "function raMailmanConfirmSchedule() {" .
+    " var modal = document.getElementById('ra-mailman-schedule-modal');" .
+    " var d = document.getElementById('ra-mailman-schedule-date').value;" .
+    " var h = document.getElementById('ra-mailman-schedule-hour').value;" .
+    " var m = document.getElementById('ra-mailman-schedule-minute').value;" .
+    " if (!d) { alert('Please choose a date and time to schedule the send.'); return; }" .
+    " var val = d + 'T' + h + ':' + m;" .
+    " if (new Date(val) <= new Date()) { alert('Please choose a date and time in the future.'); return; }" .
+    " window.location.href = modal.dataset.basePath + '?option=com_ra_mailman&task=mailshot.schedule&mailshot_id=' + modal.dataset.mailshotId + '&total=' + modal.dataset.total + '&send_at=' + encodeURIComponent(val);" .
+    " }"
+);
 ?>
 
 <form action="<?php echo htmlspecialchars(Uri::getInstance()->toString()); ?>" method="post"
@@ -153,12 +195,6 @@ $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
                         $target = 'index.php?option=com_ra_mailman&view=mailshots&list_id=' . $item->id . '&Itemid=' . $this->menu_id;
                         echo $toolsHelper->imageButton('I', $target);
                     }
-                    if (($item->emails_outstanding == 0)
-                            AND ($last_mailshot->id > 0)
-                            AND ($mailHelper->isAuthor($item->id))
-                            AND (is_null($last_mailshot->date_sent))) {
-                        echo $this->sendButton($last_mailshot, $count_subscribers);
-                    }
                     echo '</td>';
 
                     echo '<td>';
@@ -168,13 +204,16 @@ $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
                     echo '<td>';
                     if ($item->emails_outstanding > 0) {
                         echo $item->emails_outstanding;
+                        if ($last_mailshot->is_scheduled) {
+                            echo ' (scheduled for ' . HTMLHelper::_('date', $last_mailshot->send_after, 'H:i d M Y') . ')';
+                        }
                     }
                     echo '</td>';
 
                     if ($this->user->id > 0) {
                         echo '<td>';
                         // Actions are determined by a function in the View itself
-                        $actions = $this->defineActions($item->id, $item->list_type, $item->emails_outstanding, $last_mailshot);
+                        $actions = $this->defineActions($item->id, $item->list_type, $item->emails_outstanding, $last_mailshot, $count_subscribers);
                         echo $actions;
                         echo '</td>';
                     }
@@ -192,3 +231,18 @@ $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
     <input type="hidden" name="filter_order_Dir" value=""/>
     <?php echo HTMLHelper::_('form.token'); ?>
 </form>
+
+<div id="ra-mailman-schedule-modal">
+    <div class="ra-mailman-schedule-box">
+        <h4>Schedule mailshot</h4>
+        <label for="ra-mailman-schedule-date">Send at:</label>
+        <input type="date" id="ra-mailman-schedule-date">
+        <span class="fas fa-clock" aria-hidden="true"></span>
+        <select id="ra-mailman-schedule-hour" class="ra-mailman-plain"></select> :
+        <select id="ra-mailman-schedule-minute" class="ra-mailman-plain"></select>
+        <div>
+            <button type="button" class="link-button button-p0159" onclick="raMailmanConfirmSchedule()">Queue</button>
+            <button type="button" class="link-button" onclick="raMailmanCloseSchedule()">Cancel</button>
+        </div>
+    </div>
+</div>

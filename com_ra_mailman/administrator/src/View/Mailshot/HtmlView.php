@@ -130,14 +130,10 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         // If not checked out, can save the item.
         if (!$checkedOut && ($canDo->get('core.edit') || ($canDo->get('core.create')))) {
             ToolbarHelper::apply('mailshot.apply', 'JTOOLBAR_APPLY');
-            ToolbarHelper::save('mailshot.save', 'JTOOLBAR_SAVE');
+            ToolbarHelper::custom('mailshot.sendtest', 'envelope', 'envelope', 'Send Test Email', false);
         }
 
-        if (empty($this->item->id)) {
-            ToolbarHelper::cancel('mailshot.cancel', 'JTOOLBAR_CANCEL');
-        } else {
-            ToolbarHelper::cancel('mailshot.cancel', 'JTOOLBAR_CLOSE');
-        }
+        ToolbarHelper::cancel('mailshot.cancel', 'JTOOLBAR_CLOSE');
     }
 
 }

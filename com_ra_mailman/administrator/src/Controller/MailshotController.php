@@ -77,6 +77,7 @@ class MailshotController extends FormController {
     public function cancelSending() {
         $mailshot_id = (int) $this->app->input->getCmd('mailshot_id', '');
         $scope = $this->app->input->getCmd('scope', '');
+        $return = $this->app->input->getCmd('return', 'reports.recentMailshots');
         $sql = 'SELECT l.id, l.emails_outstanding, m.processing_started, m.date_sent, m.title ';
         $sql .= 'FROM #__ra_mail_shots AS m ';
         $sql .= 'INNER JOIN #__ra_mail_lists AS l ON l.id = m.mail_list_id ';
@@ -88,16 +89,37 @@ class MailshotController extends FormController {
             $sql = 'UPDATE #__ra_mail_lists SET emails_outstanding=0 WHERE id=' . $item->id;
             $this->toolsHelper->executeCommand($sql);
 
-            $sql = 'UPDATE #__ra_mail_shots SET date_sent=NOW() WHERE id=' . $mailshot_id;
+            // Return the mailshot to draft (edit/send/schedule), not permanently closed -
+            // "cancelled" halts any in-flight batch loop (see Mailhelper::isMailshotCancelled())
+            // without leaving date_sent set, which would make it look like it had actually sent.
+            $sql = 'UPDATE #__ra_mail_shots SET processing_started=NULL, send_after=NULL, is_scheduled=0, cancelled=1 WHERE id=' . $mailshot_id;
             $this->toolsHelper->executeCommand($sql);
 
             $message = 'Mailshot "' . $item->title . '" cancelled. Outstanding count reset from ' . $item->emails_outstanding . ' to 0.';
             $this->toolsHelper->createLog('RA Mailman', '27', $mailshot_id, $message);
-            $this->app->enqueueMessage('Sending cancelled. The mailshot has been closed and cannot be restarted.', 'success');
+            $this->app->enqueueMessage('Sending cancelled. The mailshot has been returned to draft - you can edit, resend, reschedule, or discard it.', 'success');
         } else {
             $this->app->enqueueMessage('No mailshot found for mailshot ID ' . $mailshot_id, 'notice');
         }
-        $this->setRedirect('/administrator/index.php?option=com_ra_mailman&task=reports.recentMailshots&scope=' . $scope);
+        if ($return === 'mail_lsts') {
+            $this->setRedirect('/administrator/index.php?option=com_ra_mailman&view=mail_lsts');
+        } else {
+            $this->setRedirect('/administrator/index.php?option=com_ra_mailman&task=reports.recentMailshots&scope=' . $scope);
+        }
+    }
+
+    public function discard() {
+        $mailshot_id = (int) $this->app->input->getCmd('mailshot_id', '');
+        $sql = 'SELECT m.mail_list_id, m.title FROM #__ra_mail_shots AS m WHERE m.id=' . $mailshot_id;
+        $item = $this->toolsHelper->getItem($sql);
+        if ($item && ($this->user->authorise('core.edit', 'com_ra_mailman') || (new Mailhelper)->isAuthor($item->mail_list_id))) {
+            (new Mailhelper)->discardMailshot($mailshot_id);
+            $this->toolsHelper->createLog('RA Mailman', '28', $mailshot_id, 'Mailshot "' . $item->title . '" discarded');
+            $this->app->enqueueMessage('Mailshot "' . $item->title . '" discarded.', 'success');
+        } else {
+            $this->app->enqueueMessage('Unable to discard mailshot', 'error');
+        }
+        $this->setRedirect('/administrator/index.php?option=com_ra_mailman&view=mail_lsts');
     }
 
     public function save($key = null, $urlVar = null) {
@@ -116,6 +138,37 @@ class MailshotController extends FormController {
             $id = $app->input->getInt('id', '1');
             $list_id = $app->input->getInt('list_id', '0');
             // Redirect back to edit form
+            $target = 'index.php?option=com_ra_mailman&view=mailshot&layout=edit';
+            $target .= '&id=' . $id . '&list_id=' . $list_id;
+        }
+        $this->setRedirect(Route::_($target, false));
+        return $return;
+    }
+
+    public function sendtest($key = null, $urlVar = null) {
+        // Force FormController::save()'s "apply" branch: for a brand-new record (id=0),
+        // the new id only becomes available via the edit session state, which core only
+        // reliably retains on the apply/save2new branches - any other task name (including
+        // our own) falls through the "close" branch, which clears that state to 0 and left
+        // sendDraft()/getEditRedirectTarget() unable to find the record just created.
+        $this->task = 'apply';
+        $return = parent::save($key, $urlVar);
+        if ($return) {
+            $data = $this->app->input->get('jform', array(), 'array');
+            $id = (int) ($data['id'] ?? 0);
+            if ($id === 0) {
+                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+            }
+            if ($id === 0) {
+                $id = $this->app->input->getInt('id', 0);
+            }
+            $mailHelper = new Mailhelper;
+            $mailHelper->sendDraft($id, true);
+            $target = $this->getEditRedirectTarget();
+        } else {
+            $app = $this->app;
+            $id = $app->input->getInt('id', '1');
+            $list_id = $app->input->getInt('list_id', '0');
             $target = 'index.php?option=com_ra_mailman&view=mailshot&layout=edit';
             $target .= '&id=' . $id . '&list_id=' . $list_id;
         }
@@ -381,8 +434,8 @@ class MailshotController extends FormController {
         } else {
             $mailHelper = new Mailhelper;
             if ($force == 'Y') {
-                // Ignore any limit on the numbers to be send on-line
-                $mailHelper->sendEmails($mailshot_id);
+                // Ignore any limit on the numbers to be send on-line, and bypass the send_after delay
+                $mailHelper->sendEmails($mailshot_id, true);
                 if (!empty($mailHelper->messages)) {
                     foreach ($mailHelper->messages as $message) {
                         $this->app->enqueueMessage($message, 'info');
@@ -391,6 +444,21 @@ class MailshotController extends FormController {
             } else {
                 $mailHelper->send($mailshot_id, $total);
             }
+        }
+
+        $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');
+    }
+
+    public function schedule() {
+        $mailshot_id = (int) $this->app->input->getCmd('mailshot_id', '');
+        $total = $this->app->input->getInt('total', 0);
+        $send_at = $this->app->input->getString('send_at', '');
+
+        if ($this->user->id == 0) {
+            $this->app->enqueueMessage('You must log in to access this function', 'error');
+        } else {
+            $mailHelper = new Mailhelper;
+            $mailHelper->scheduleSend($mailshot_id, $total, $send_at);
         }
 
         $this->setRedirect('index.php?option=com_ra_mailman&view=mail_lsts');

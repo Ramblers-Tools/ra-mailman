@@ -146,25 +146,24 @@ class MailshotController extends FormController {
     }
 
     public function sendtest($key = null, $urlVar = null) {
-        // Force FormController::save()'s "apply" branch: for a brand-new record (id=0),
-        // the new id only becomes available via the edit session state, which core only
-        // reliably retains on the apply/save2new branches - any other task name (including
-        // our own) falls through the "close" branch, which clears that state to 0 and left
-        // sendDraft()/getEditRedirectTarget() unable to find the record just created.
-        $this->task = 'apply';
+        $data = $this->app->input->get('jform', array(), 'array');
+        $list_id = (int) ($data['mail_list_id'] ?? 0);
         $return = parent::save($key, $urlVar);
         if ($return) {
-            $data = $this->app->input->get('jform', array(), 'array');
-            $id = (int) ($data['id'] ?? 0);
-            if ($id === 0) {
-                $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
+            // Resolve the just-saved record's real id directly from the database (the same
+            // technique Mailhelper::lastMailshot() already uses), rather than trusting
+            // FormController::save()'s edit-session-id state - that state is only reliably
+            // retained on the genuine apply/save2new tasks, and a brand-new record (id=0 on
+            // entry) has no other way to recover its new id. An earlier attempt forced
+            // $this->task = 'apply' to coax that state into being set, but this corrupted
+            // form binding on the redirected page (FormEvent::onSetData() TypeError).
+            $sql = 'SELECT id FROM #__ra_mail_shots WHERE mail_list_id=' . $list_id . ' ORDER BY id DESC LIMIT 1';
+            $id = (int) $this->toolsHelper->getValue($sql);
+            if ($id > 0) {
+                $mailHelper = new Mailhelper;
+                $mailHelper->sendDraft($id, true);
             }
-            if ($id === 0) {
-                $id = $this->app->input->getInt('id', 0);
-            }
-            $mailHelper = new Mailhelper;
-            $mailHelper->sendDraft($id, true);
-            $target = $this->getEditRedirectTarget();
+            $target = 'index.php?option=com_ra_mailman&view=mailshot&layout=edit&id=' . $id . '&list_id=' . $list_id;
         } else {
             $app = $this->app;
             $id = $app->input->getInt('id', '1');

@@ -685,7 +685,9 @@ class Mailhelper {
             if ($src === '' || preg_match('#^(?:data:|https?://|cid:)#i', $src)) {
                 return $matches[0];
             }
-            $relative = ltrim((string) parse_url($src, PHP_URL_PATH), '/');
+            // rawurldecode: the editor URL-encodes the src (e.g. spaces as %20), but the
+            // filesystem path needs the decoded filename to match the actual file on disk.
+            $relative = rawurldecode(ltrim((string) parse_url($src, PHP_URL_PATH), '/'));
             $path = JPATH_ROOT . '/' . $relative;
             if (strpos($relative, '..') !== false || !file_exists($path)) {
                 return $matches[0];

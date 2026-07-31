@@ -1152,6 +1152,16 @@ class Mailhelper {
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
+        if (empty($item) || !isset($item->id)) {
+            // A broken/missing column here previously failed silently (getItem() catches the DB
+            // exception and returns false) - every property read then yielded null, so every guard
+            // below (still_queued, date_sent, processing_started) evaluated as "fresh mailshot" and
+            // the whole subscriber list was resent from scratch on every invocation.
+            $message = 'Mailshot lookup failed for id=' . $mailshot_id . ' (' . $this->toolsHelper->error . '); send aborted';
+            $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
+            $this->messages[] = $message;
+            return false;
+        }
         $message = 'Processing_started=' . $item->processing_started . ', group=' . $item->group_code . ', owner email=' . $item->email;
         if (is_null($item->date_sent)) {
             $message .= ', date_sent is null';

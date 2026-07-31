@@ -1173,7 +1173,27 @@ class Mailhelper {
             $this->updateOutstanding($mail_list_id, 0);
             return 0;
         }
-        if (!is_null($item->processing_started)) {
+        // Claim the "first send" slot atomically - if two invocations (e.g. an overlapping
+        // cron run and a manual send, or two cron runs racing a slow SMTP batch) both read
+        // processing_started as NULL, only one UPDATE...WHERE processing_started IS NULL can
+        // affect a row. The loser falls through to the restart branch below instead of also
+        // sending to every subscriber.
+        $claimed = false;
+        if (is_null($item->processing_started)) {
+            $sql = 'UPDATE #__ra_mail_shots SET processing_started=' . $this->db->quote(Factory::getDate()->toSql());
+            $sql .= ' WHERE id=' . (int) $mailshot_id . ' AND processing_started IS NULL';
+            $this->db->setQuery($sql);
+            $this->db->execute();
+            $claimed = $this->db->getAffectedRows() > 0;
+            if (!$claimed) {
+                // Someone else claimed it a moment ago - re-read so the guards below see it.
+                $item->processing_started = $this->toolsHelper->getValue(
+                        'SELECT processing_started FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id
+                );
+            }
+        }
+
+        if (!$claimed && !is_null($item->processing_started)) {
             $processing_started = Factory::getDate($item->processing_started)->toUnix();
             $elapsed = time() - $processing_started;
 

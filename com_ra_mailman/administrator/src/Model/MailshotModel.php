@@ -204,6 +204,13 @@ class MailshotModel extends AdminModel implements CurrentUserInterface {
             $data = $this->item;
         }
 
+        // getItem() returns false when the id can't be loaded (e.g. a stale id from
+        // the post-save redirect target) - Form::bind() requires object|array and
+        // throws a FormEvent::onSetData() TypeError on false.
+        if ($data === false) {
+            $data = new \stdClass();
+        }
+
         return $data;
     }
 

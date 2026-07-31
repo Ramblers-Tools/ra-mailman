@@ -362,6 +362,14 @@ class Com_Ra_mailmanInstallerScript {
     public function update($parent): bool {
         echo '<p>Updating RA MailMan (com_ra_mailman)</p>';
 
+// Runs on every update regardless of current_version, unlike preflight() (which
+// short-circuits at version_required='4.7.5' and never reaches its own reply_to
+// checkColumn call for any site already past that version - i.e. every real site).
+// checkColumn() checks information_schema first, so this is safe to run whether or
+// not the column already exists (some sites got it via the old preflight path,
+// most didn't).
+        $this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ');
+
 // You can have the backend jump directly to the newly updated component configuration page
 // $parent->getParent()->setRedirectURL('index.php?option=com_ra_mailman');
         return true;

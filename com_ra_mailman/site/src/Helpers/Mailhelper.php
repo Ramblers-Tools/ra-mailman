@@ -625,9 +625,11 @@ class Mailhelper {
 
             $setup->setup_source = 'Organisation table';
             $setup->setup_code = $item->code;
-            if (!empty($item->website)) {
-                $setup->website = $item->website;
-            }
+            // website is deliberately NOT overridden from the organisation record here -
+            // mailshot links (event invitations, un-subscribe) must always point back to
+            // the site actually sending the email, regardless of which group's list the
+            // mailshot belongs to. Only the group's own branding (logo/colours/header
+            // text) is per-group; the domain is always this installation's own.
             if (!empty($item->email_header)) {
                 $setup->email_header = $item->email_header;
             }

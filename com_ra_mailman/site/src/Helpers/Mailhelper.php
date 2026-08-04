@@ -1109,6 +1109,7 @@ class Mailhelper {
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
+            $this->messages[] = 'DIAG: buildMessage() returned false: ' . ($this->message ?? '(no message)');
             return false;
         }
         if ($item->event_id > 0) {
@@ -1128,6 +1129,7 @@ class Mailhelper {
             $count++;
         } else {
             $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
+            $this->messages[] = 'DIAG: sendEmail() to ' . $user_email . ' returned false';
             return 0;
         }
 //        die('user email ' . $user_email . '<br>' . $this->message);

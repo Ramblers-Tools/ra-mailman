@@ -149,9 +149,7 @@ class MailshotController extends FormController {
         $data = $this->app->input->get('jform', array(), 'array');
         $list_id = (int) ($data['mail_list_id'] ?? 0);
         $id = (int) ($data['id'] ?? 0);
-        $this->toolsHelper->createLog('RA Mailman', '30', 'sendtest', 'DIAG: entry id=' . $id . ', list_id=' . $list_id);
         $return = parent::save($key, $urlVar);
-        $this->toolsHelper->createLog('RA Mailman', '30', 'sendtest', 'DIAG: parent::save returned ' . var_export($return, true));
         if ($return) {
             if ($id === 0) {
                 // Brand-new record: id wasn't known before save (0 on entry), so it can't be
@@ -167,14 +165,10 @@ class MailshotController extends FormController {
                 // this list has a newer draft/sent record than the one being edited.
                 $sql = 'SELECT id FROM #__ra_mail_shots WHERE mail_list_id=' . $list_id . ' ORDER BY id DESC LIMIT 1';
                 $id = (int) $this->toolsHelper->getValue($sql);
-                $this->toolsHelper->createLog('RA Mailman', '30', 'sendtest', 'DIAG: resolved new id=' . $id . ' via list_id=' . $list_id . ' fallback');
             }
             if ($id > 0) {
                 $mailHelper = new Mailhelper;
-                $sendResult = $mailHelper->sendDraft($id, true);
-                $this->toolsHelper->createLog('RA Mailman', '30', 'sendtest', 'DIAG: sendDraft(' . $id . ') returned ' . var_export($sendResult, true) . '; messages=' . implode(' | ', $mailHelper->messages ?? []));
-            } else {
-                $this->toolsHelper->createLog('RA Mailman', '30', 'sendtest', 'DIAG: id resolved to 0 - sendDraft never called');
+                $mailHelper->sendDraft($id, true);
             }
             $target = 'index.php?option=com_ra_mailman&view=mailshot&layout=edit&id=' . $id . '&list_id=' . $list_id;
         } else {

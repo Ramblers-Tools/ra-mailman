@@ -1082,20 +1082,14 @@ class Mailhelper {
     public function sendDraft($mailshot_id, $selfOnly = false) {
 
         $user = Factory::getApplication()->getSession()->get('user');
-        $setup = $this->getEmailSetup();
-        if ($setup === false) {
-            $this->messages[] = 'Email setup not found';
-            return false;
-        }
-        // Find the reference point for the un-subscribe link
-        $website_base = rtrim($setup->website, '/') . '/';
-
         $this->messages = $this->messages ?? [];
         $this->attachments = [];
 
-//      Find the email address of the list's owner, and the event_id (if any) - needed
-//      before building the body so the event invitation block below can use them.
-        $sql = 'SELECT ms.reply_to, ms.event_id, u.email FROM #__ra_mail_shots AS ms ';
+//      Find the email address of the list's owner, the event_id (if any), and the list's
+//      own group_code - needed before getEmailSetup()/buildMessage() are called, so the
+//      organisation-specific branding/website used matches the mailshot's actual list
+//      rather than whichever group the current admin's own profile happens to default to.
+        $sql = 'SELECT ms.reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
@@ -1106,10 +1100,28 @@ class Mailhelper {
         }
         $owner_email = $item->email;
 
+        // getEmailSetup() only resolves the mailshot's own list-specific organisation
+        // config (website/branding) when batch_mode is set - otherwise it falls back to
+        // the current admin's own default group (or the component-wide default if
+        // full_version='Y'), which has no relation to which list this mailshot belongs
+        // to. sendEmails() (the real send) always sets this; sendDraft() never did,
+        // which is why the event invitation link (and logo/colours) could point to the
+        // wrong site on a draft/test send while the real send was always correct.
+        $this->batch_mode = true;
+        $this->config_group = $item->group_code;
+
+        $setup = $this->getEmailSetup();
+        if ($setup === false) {
+            $this->messages[] = 'Email setup not found';
+            return false;
+        }
+        // Find the reference point for the un-subscribe link
+        $website_base = rtrim($setup->website, '/') . '/';
+
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
-            $this->messages[] = 'DIAG: buildMessage() returned false: ' . ($this->message ?? '(no message)');
+            $this->messages[] = $this->message ?? 'Unable to build mailshot body';
             return false;
         }
         if ($item->event_id > 0) {
@@ -1129,7 +1141,7 @@ class Mailhelper {
             $count++;
         } else {
             $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
-            $this->messages[] = 'DIAG: sendEmail() to ' . $user_email . ' returned false';
+            $this->messages[] = $this->message;
             return 0;
         }
 //        die('user email ' . $user_email . '<br>' . $this->message);

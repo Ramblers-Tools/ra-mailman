@@ -1136,9 +1136,15 @@ class Mailhelper {
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
         $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');
 
+        // buildMessage() deliberately excludes the footer (list footer + component
+        // email_footer text) - sendEmails() appends it per-recipient along with a
+        // personalised un-subscribe link. A draft send has no real subscriber/token to
+        // build that link for, so the footer text is shown without it.
+        $full_message = $mailshot_body . '</div>' . $this->footer . '</div></body></html>';
+
         $count = 0;
         // Send message to the editor of the message
-        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $full_message, $this->attachments)) {
             $message = 'Draft email sent to ' . $user_email . ' ' . $attachmentNote . ', reply to ' . $reply_to;
             $count++;
         } else {
@@ -1149,7 +1155,7 @@ class Mailhelper {
 //        die('user email ' . $user_email . '<br>' . $this->message);
 //      If current user not the list owner, send another copy to the owner, reply_to = author
         if (!$selfOnly && $user_email !== $owner_email) {
-            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $full_message, $this->attachments)) {
                 $message .= ', also sent to the owner at ' . $owner_email;
                 $count++;
             } else {

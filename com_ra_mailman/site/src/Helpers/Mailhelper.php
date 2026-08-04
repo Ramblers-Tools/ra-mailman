@@ -512,6 +512,13 @@ class Mailhelper {
         if ($setup === false) {
             return '';
         }
+        // buildMessage() also instantiates this when its own event_id check passes, but
+        // that's a separate, independent query result - don't rely on it having run, or
+        // having agreed. A null bookingHelper here is a fatal "call to member function on
+        // null", not a silently-skipped block.
+        if (is_null($this->bookingHelper)) {
+            $this->bookingHelper = new BookingHelper;
+        }
         $message = '<div style="background: ' . $setup->colour_body;
         $message .= '; padding-top: 10px; ">';
         $message .= $this->bookingHelper->generateInvitation($website_base, $event_id, $user_id);
@@ -1093,6 +1100,10 @@ class Mailhelper {
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
+        if (empty($item) || !isset($item->email)) {
+            $this->messages[] = 'Unable to load mailshot ' . $mailshot_id . ' for draft send';
+            return false;
+        }
         $owner_email = $item->email;
 
         // Compile the final message from its components

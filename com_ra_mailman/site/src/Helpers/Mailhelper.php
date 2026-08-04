@@ -506,7 +506,12 @@ class Mailhelper {
     }
 
     private function generateInvitation($website_base, $event_id, $user_id) {
-//     Invoked from sendEmails and from sendDraft
+//     Invoked from sendDraft. sendEmails() inlines the same logic separately since it
+//     already has $setup in scope there.
+        $setup = $this->getEmailSetup();
+        if ($setup === false) {
+            return '';
+        }
         $message = '<div style="background: ' . $setup->colour_body;
         $message .= '; padding-top: 10px; ">';
         $message .= $this->bookingHelper->generateInvitation($website_base, $event_id, $user_id);
@@ -1080,25 +1085,27 @@ class Mailhelper {
 
         $this->messages = $this->messages ?? [];
         $this->attachments = [];
+
+//      Find the email address of the list's owner, and the event_id (if any) - needed
+//      before building the body so the event invitation block below can use them.
+        $sql = 'SELECT ms.reply_to, ms.event_id, u.email FROM #__ra_mail_shots AS ms ';
+        $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
+        $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'WHERE ms.id=' . $mailshot_id;
+        $item = $this->toolsHelper->getItem($sql);
+        $owner_email = $item->email;
+
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
             return false;
         }
         if ($item->event_id > 0) {
-            $message .= 'Event ' . $item->event_id . '<br>';
-//           $message .= $this->generateInvitation($website_base, $item->event_id, $user->id);
+            $mailshot_body .= $this->generateInvitation($website_base, $item->event_id, $user->id);
         }
 //      Find the email address of the current user
         $user_email = $user->email;
 
-//      Find the email address of the list's owner
-        $sql = 'SELECT ms.reply_to, u.email FROM #__ra_mail_shots AS ms ';
-        $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
-        $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
-        $sql .= 'WHERE ms.id=' . $mailshot_id;
-        $item = $this->toolsHelper->getItem($sql);
-        $owner_email = $item->email;
         $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
         $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');

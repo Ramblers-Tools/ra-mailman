@@ -148,17 +148,24 @@ class MailshotController extends FormController {
     public function sendtest($key = null, $urlVar = null) {
         $data = $this->app->input->get('jform', array(), 'array');
         $list_id = (int) ($data['mail_list_id'] ?? 0);
+        $id = (int) ($data['id'] ?? 0);
         $return = parent::save($key, $urlVar);
         if ($return) {
-            // Resolve the just-saved record's real id directly from the database (the same
-            // technique Mailhelper::lastMailshot() already uses), rather than trusting
-            // FormController::save()'s edit-session-id state - that state is only reliably
-            // retained on the genuine apply/save2new tasks, and a brand-new record (id=0 on
-            // entry) has no other way to recover its new id. An earlier attempt forced
-            // $this->task = 'apply' to coax that state into being set, but this corrupted
-            // form binding on the redirected page (FormEvent::onSetData() TypeError).
-            $sql = 'SELECT id FROM #__ra_mail_shots WHERE mail_list_id=' . $list_id . ' ORDER BY id DESC LIMIT 1';
-            $id = (int) $this->toolsHelper->getValue($sql);
+            if ($id === 0) {
+                // Brand-new record: id wasn't known before save (0 on entry), so it can't be
+                // read from the form. Resolve it directly from the database (the same
+                // technique Mailhelper::lastMailshot() already uses), rather than trusting
+                // FormController::save()'s edit-session-id state - that state is only reliably
+                // retained on the genuine apply/save2new tasks. An earlier attempt forced
+                // $this->task = 'apply' to coax that state into being set, but this corrupted
+                // form binding on the redirected page (FormEvent::onSetData() TypeError).
+                // NOTE: only safe for a genuinely new record - if $id was already nonzero
+                // (an existing mailshot being edited), using "latest for this list" instead
+                // of the real id would redirect to a different, unrelated mailshot whenever
+                // this list has a newer draft/sent record than the one being edited.
+                $sql = 'SELECT id FROM #__ra_mail_shots WHERE mail_list_id=' . $list_id . ' ORDER BY id DESC LIMIT 1';
+                $id = (int) $this->toolsHelper->getValue($sql);
+            }
             if ($id > 0) {
                 $mailHelper = new Mailhelper;
                 $mailHelper->sendDraft($id, true);

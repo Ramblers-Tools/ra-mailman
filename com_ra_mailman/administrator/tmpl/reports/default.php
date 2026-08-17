@@ -1,11 +1,5 @@
 <?php
 /**
- * @version     4.5.6
- * @package     com_ra_mailman
- * @copyright   Copyright (C) 2020. All rights reserved.
- * @license     GNU General Public License version 2 or later; see LICENSE.txt
- * @author      Charlie Bigley <webmaster@bigley.me.uk> - https://www.developer-url.com
- * 28/10/24 CB separate reports duffUsers and duffProfiles, resetUsers
  * 20/11/24 CB showCreated
  * 09/03/25 CB showSubscriptionsByStatus
  * 18/05/25 CB duplicatePreferredname, duplicateRecipients reports
@@ -14,6 +8,7 @@
  * 10/08/25 CB recentMailshots
  * 29/09/25 CB bookableEvents
  * 13/10/25 CB subscriptionsReport
+ * 17/08/26 CB emailPreview (not dummyEmail)
  */
 defined('_JEXEC') or die;
 
@@ -47,7 +42,7 @@ $reports = [
     'Mailshots by Month' => 'administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth',
     'Users awaiting password reset' => 'administrator/index.php?option=com_ra_mailman&task=reports.resetUsers',
     'Blocked users' => 'administrator/index.php?option=com_ra_mailman&task=reports.blockedUsers',
-    'Sample Email' => 'administrator/index.php?option=com_ra_mailman&task=reports.dummyEmail',
+    'Sample Email' => 'administrator/index.php?option=com_ra_mailman&task=reports.emailPreview',
     'Check database for invalid records' => 'administrator/index.php?option=com_ra_mailman&task=reports.checkDatabase',
     'Duplicate Recipients' => 'administrator/index.php?option=com_ra_mailman&task=reports.duplicateRecipients',
 ];

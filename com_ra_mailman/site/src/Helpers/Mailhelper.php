@@ -38,6 +38,7 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 class Mailhelper {
 
     const SEND_DELAY_MINUTES = 5; // minimum wait after clicking Send before any email is actually dispatched
+
     public $batch_mode = false; // if true, messages are added to $this->messages instead of enqueued, for display at the end of the batch process
     public $message;
     public $messages;
@@ -505,7 +506,7 @@ class Mailhelper {
         return strrev($token) . "M";
     }
 
-    private function generateInvitation($website_base, $event_id, $user_id) {
+    private function generateInvitation($event_id, $user_id) {
 //     Invoked from sendDraft. sendEmails() inlines the same logic separately since it
 //     already has $setup in scope there.
         $setup = $this->getEmailSetup();
@@ -521,7 +522,7 @@ class Mailhelper {
         }
         $message = '<div style="background: ' . $setup->colour_body;
         $message .= '; padding-top: 10px; ">';
-        $message .= $this->bookingHelper->generateInvitation($website_base, $event_id, $user_id);
+        $message .= $this->bookingHelper->generateInvitation($event_id, $user_id);
         $message .= '</div>';
         return $message;
     }
@@ -625,11 +626,9 @@ class Mailhelper {
 
             $setup->setup_source = 'Organisation table';
             $setup->setup_code = $item->code;
-            // website is deliberately NOT overridden from the organisation record here -
-            // mailshot links (event invitations, un-subscribe) must always point back to
-            // the site actually sending the email, regardless of which group's list the
-            // mailshot belongs to. Only the group's own branding (logo/colours/header
-            // text) is per-group; the domain is always this installation's own.
+            if (!empty($item->website)) {
+                $setup->website = $item->website;
+            }
             if (!empty($item->email_header)) {
                 $setup->email_header = $item->email_header;
             }
@@ -1084,14 +1083,20 @@ class Mailhelper {
     public function sendDraft($mailshot_id, $selfOnly = false) {
 
         $user = Factory::getApplication()->getSession()->get('user');
+        $setup = $this->getEmailSetup();
+        if ($setup === false) {
+            $this->messages[] = 'Email setup not found';
+            return false;
+        }
+        // Find the reference point for the un-subscribe link
+        $website_base = rtrim($setup->website, '/') . '/';
+
         $this->messages = $this->messages ?? [];
         $this->attachments = [];
 
-//      Find the email address of the list's owner, the event_id (if any), and the list's
-//      own group_code - needed before getEmailSetup()/buildMessage() are called, so the
-//      organisation-specific branding/website used matches the mailshot's actual list
-//      rather than whichever group the current admin's own profile happens to default to.
-        $sql = 'SELECT ms.reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
+//      Find the email address of the list's owner, and the event_id (if any) - needed
+//      before building the body so the event invitation block below can use them.
+        $sql = 'SELECT ms.reply_to, ms.event_id, u.email FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
@@ -1102,32 +1107,14 @@ class Mailhelper {
         }
         $owner_email = $item->email;
 
-        // getEmailSetup() only resolves the mailshot's own list-specific organisation
-        // config (website/branding) when batch_mode is set - otherwise it falls back to
-        // the current admin's own default group (or the component-wide default if
-        // full_version='Y'), which has no relation to which list this mailshot belongs
-        // to. sendEmails() (the real send) always sets this; sendDraft() never did,
-        // which is why the event invitation link (and logo/colours) could point to the
-        // wrong site on a draft/test send while the real send was always correct.
-        $this->batch_mode = true;
-        $this->config_group = $item->group_code;
-
-        $setup = $this->getEmailSetup();
-        if ($setup === false) {
-            $this->messages[] = 'Email setup not found';
-            return false;
-        }
-        // Find the reference point for the un-subscribe link
-        $website_base = rtrim($setup->website, '/') . '/';
-
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
-            $this->messages[] = $this->message ?? 'Unable to build mailshot body';
+            $this->messages[] = 'DIAG: buildMessage() returned false: ' . ($this->message ?? '(no message)');
             return false;
         }
         if ($item->event_id > 0) {
-            $mailshot_body .= $this->generateInvitation($website_base, $item->event_id, $user->id);
+            $mailshot_body .= $this->generateInvitation($item->event_id, $user->id);
         }
 //      Find the email address of the current user
         $user_email = $user->email;
@@ -1136,26 +1123,20 @@ class Mailhelper {
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
         $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');
 
-        // buildMessage() deliberately excludes the footer (list footer + component
-        // email_footer text) - sendEmails() appends it per-recipient along with a
-        // personalised un-subscribe link. A draft send has no real subscriber/token to
-        // build that link for, so the footer text is shown without it.
-        $full_message = $mailshot_body . '</div>' . $this->footer . '</div></body></html>';
-
         $count = 0;
         // Send message to the editor of the message
-        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $full_message, $this->attachments)) {
+        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
             $message = 'Draft email sent to ' . $user_email . ' ' . $attachmentNote . ', reply to ' . $reply_to;
             $count++;
         } else {
             $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
-            $this->messages[] = $this->message;
+            $this->messages[] = 'DIAG: sendEmail() to ' . $user_email . ' returned false';
             return 0;
         }
 //        die('user email ' . $user_email . '<br>' . $this->message);
 //      If current user not the list owner, send another copy to the owner, reply_to = author
         if (!$selfOnly && $user_email !== $owner_email) {
-            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $full_message, $this->attachments)) {
+            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
                 $message .= ', also sent to the owner at ' . $owner_email;
                 $count++;
             } else {
@@ -1341,6 +1322,13 @@ class Mailhelper {
         $current_email = '';
         foreach ($subscribers as $subscriber) {
             try {
+                $attempt_count++;
+                $this->toolsHelper->createLog(
+                        'RA Mailman',
+                        '13',
+                        $mailshot_id,
+                        'Processing ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
+                );
                 if ($this->isMailshotCancelled($mailshot_id)) {
                     $message = 'Mailshot "' . $item->title . '" was cancelled while dispatch was in progress. Sending stopped.';
                     $this->toolsHelper->createLog('RA Mailman', '27', $mailshot_id, $message);
@@ -1348,25 +1336,29 @@ class Mailhelper {
                     return false;
                 }
 
-                $attempt_count++;
-                // Check not already sent an email to this subscriber
-                if ($subscriber->email == $current_email) {
-                    $message = 'Duplicate message suppressed for ' . $subscriber->email;
-                    $this->messages[] = $message;
-                    $this->toolsHelper->createLog('RA Mailman', '12', $mailshot_id, $message);
-                    continue;
-                }
 
                 $message = $mailshot_body;
                 $message .= '</div>';
                 if ($item->event_id > 0) {
+                    $this->toolsHelper->createLog(
+                            'RA Mailman',
+                            '14',
+                            $mailshot_id,
+                            'Generating invitation to ' . $item->event_id . ' for user ' . $subscriber->user_id
+                    );
                     $message .= '<div style="background: ' . $setup->colour_body;
                     $message .= '; padding-top: 10px; ">';
-                    $message .= $this->bookingHelper->generateInvitation($website_base, $item->event_id, $subscriber->user_id);
+                    $message .= $this->bookingHelper->generateInvitation($item->event_id, $subscriber->user_id);
                     $message .= '</div>';
                 }
 
                 $current_email = $subscriber->email;
+                $this->toolsHelper->createLog(
+                        'RA Mailman',
+                        '15',
+                        $mailshot_id,
+                        'Encoding ' . $subscriber->subscription_id . ' for event ' . $item->event_id
+                );
                 $token = $this->encode($subscriber->subscription_id, 0);
 
                 $link = $this->toolsHelper->buildLink($website_base . 'index.php?option=com_ra_mailman&task=mail_lst.processEmail&token=' . $token, 'Un-subscribe');
@@ -1375,7 +1367,7 @@ class Mailhelper {
 
                 $this->toolsHelper->createLog(
                         'RA Mailman',
-                        '14',
+                        '15',
                         $mailshot_id,
                         'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
                 );

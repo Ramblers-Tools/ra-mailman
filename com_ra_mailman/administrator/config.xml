@@ -26,12 +26,6 @@
                label="System footer" 
                required="true"
                description="Text to appear at the end of every email" />
-        <field name="website"
-                type="text"
-                label="Website address" 
-                description="Used when creating links in emails for Unsubscribe, Renewals etc" 
-                required="true"
-                hint="https://xxxramblers.org.uk"/>
         <field
             name="draft_mailshot"
             type="radio"

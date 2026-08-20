@@ -107,6 +107,10 @@ class Mailhelper {
         if (($logo != '') && file_exists(JPATH_ROOT . $logo)) {
             $header .= '<a href="' . $setup->website . '" style="flex-shrink: 0; display: flex;">';
             $header .= '<img src="' . $this->encodeImageAsDataUri(JPATH_ROOT . $logo) . '" ';
+            // Some mail clients (e.g. Spark) strip/ignore the style attribute on images
+            // and only honour real HTML width/height attributes - set both so the
+            // configured size is respected everywhere.
+            $header .= 'width="' . $setup->width . '" height="' . $setup->height . '" ';
             $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%;" ';
             $header .= 'alt="Logo">';
             $header .= '</a>';

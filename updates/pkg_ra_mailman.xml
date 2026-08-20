@@ -6,12 +6,12 @@
         <element>pkg_ra_mailman</element>
         <type>package</type>
         <client>site</client>
-        <version>5.0.0</version>
-        <infourl title="Release notes">https://github.com/Ramblers-Tools/ra-mailman/releases/tag/v5.0.0</infourl>
+        <version>5.1.0</version>
+        <infourl title="Release notes">https://github.com/Ramblers-Tools/ra-mailman/releases/tag/v5.1.0</infourl>
         <downloads>
-            <downloadurl type="full" format="zip">https://github.com/Ramblers-Tools/ra-mailman/releases/download/v5.0.0/pkg_ra_mailman-5.0.0.zip</downloadurl>
+            <downloadurl type="full" format="zip">https://github.com/Ramblers-Tools/ra-mailman/releases/download/v5.1.0/pkg_ra_mailman-5.1.0.zip</downloadurl>
         </downloads>
-        <sha256>a5f506f5d43a2b91b3b7e28874dfe81c7ecbdeec399f91a5749eb8aab173d14c</sha256>
+        <sha256>45cb1842a219f526c07eb461da3ee024177ff6d1afba91f21db807e3220547be</sha256>
         <targetplatform name="joomla" version="5.*"/>
     </update>
 </updates>

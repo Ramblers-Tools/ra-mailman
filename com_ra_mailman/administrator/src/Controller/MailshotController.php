@@ -192,11 +192,13 @@ class MailshotController extends FormController {
         $list_id = (int) ($data['mail_list_id'] ?? 0);
 
         if ($id === 0) {
-            $id = (int) $this->app->getUserState('com_ra_mailman.edit.mailshot.id');
-        }
-
-        if ($id === 0) {
-            $id = $this->app->input->getInt('id', 0);
+            // Brand-new record: id wasn't known before save, so it can't be read from the
+            // form. Resolve it directly from the database - the same technique sendtest()
+            // uses - rather than trusting session user-state, which is global per admin
+            // session and can be stale from a different, unrelated mailshot edited earlier
+            // in the same login (causing the wrong mailshot to reload after a genuine save).
+            $sql = 'SELECT id FROM #__ra_mail_shots WHERE mail_list_id=' . $list_id . ' ORDER BY id DESC LIMIT 1';
+            $id = (int) $this->toolsHelper->getValue($sql);
         }
 
         if ($list_id === 0) {

@@ -287,16 +287,24 @@ class Mailhelper {
         }
 
 
-        // Inline any attached images directly into the body as base64 data URIs.
+        // Image attachments are inlined directly into the body as base64 data URIs;
+        // non-image attachments (e.g. PDF, docx, csv) are sent as real MIME attachments,
+        // since forcing them through an <img> tag produced a broken image and dropped
+        // the actual file.
         if ($item->attachment != '') {
             $attach_array = explode(',', $item->attachment);
             foreach ($attach_array as $file) {
                 $working_file = JPATH_ROOT . '/images/com_ra_mailman/' . $file;
                 if (file_exists($working_file)) {
-                    $mailshot_body .= '<div style="margin: 12px 0;">';
-                    $mailshot_body .= '<img src="' . $this->encodeImageAsDataUri($working_file) . '" ';
-                    $mailshot_body .= 'alt="' . htmlspecialchars($file, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100%; height: auto;">';
-                    $mailshot_body .= '</div>';
+                    $mime = @getimagesize($working_file)['mime'] ?? null;
+                    if ($mime !== null) {
+                        $mailshot_body .= '<div style="margin: 12px 0;">';
+                        $mailshot_body .= '<img src="' . $this->encodeImageAsDataUri($working_file) . '" ';
+                        $mailshot_body .= 'alt="' . htmlspecialchars($file, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100%; height: auto;">';
+                        $mailshot_body .= '</div>';
+                    } else {
+                        $this->attachments[] = $working_file;
+                    }
                 } else {
                     $mailshot_body .= 'File ' . $file . ' not found<br>';
                     $this->message .= $working_file . ' not found';

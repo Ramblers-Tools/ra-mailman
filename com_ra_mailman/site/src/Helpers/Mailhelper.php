@@ -1768,12 +1768,19 @@ class Mailhelper {
         $objTable->generate_table();
     }
 
-    public function subscribe($list_id, $user_id, $record_type, $method_id) {
+    public function subscribe($list_id, $user_id, $record_type, $method_id, $force = true) {
 // Subscribes the given user to the given list
 // if invoked from the front-end, $user_id will usually be the current user,
 // but from the back-end, or if invoked from view list_select, it could be any user
 //
 // $record_type (from back end) could be 1=Subscription or 2=author
+//
+// $force controls whether a previously cancelled (state=0) or purged (state=-2)
+// subscription can be silently reactivated. Deliberate admin/user-initiated
+// subscribe actions default to true (unchanged behaviour); passive bulk imports
+// (UserHelper::processRecords()) pass false, since a returning user who had
+// actively unsubscribed should not be silently re-subscribed just because they
+// reappear in an import feed.
         if (JDEBUG) {
             $message = "Creating subscription for list=" . $list_id . ', user=' . $user_id;
             $message .= ", record_type=" . $record_type . ', method_id=' . $method_id;
@@ -1797,6 +1804,10 @@ class Mailhelper {
         if ($item) {
             if (($item->state == 1) AND ($item->record_type == $record_type)) {
                 $this->message = 'User is already subscribed to ' . $list->name . ' as ' . $item->name;
+                return false;
+            }
+            if (!$force AND (($item->state == 0) OR ($item->state == -2))) {
+                $this->message = 'User previously unsubscribed from ' . $list->name . ' - not re-subscribing automatically';
                 return false;
             }
         }

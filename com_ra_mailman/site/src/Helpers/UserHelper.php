@@ -885,7 +885,7 @@ class UserHelper {
                         $this->subscription_count++;
                     }
                     if (($subscription_required) AND ($this->processing == 1)) {
-                        if ($this->objMailHelper->subscribe($this->list_id, $user_id, $this->record_type, $this->method_id)) {
+                        if ($this->objMailHelper->subscribe($this->list_id, $user_id, $this->record_type, $this->method_id, false)) {
                             $message .= ', Subscription created';
                             $this->new_subs[] = $this->name . ',' . $this->email;
                             $this->subscription_count++;

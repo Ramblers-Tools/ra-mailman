@@ -679,6 +679,10 @@ class Mailhelper {
         }
 
         $logo_file = trim($logo_file);
+        // Joomla's media field type stores extra metadata after a '#' (e.g.
+        // "#joomlaImage://local-images/...?width=...&height=...") - strip it to get
+        // the real relative file path.
+        $logo_file = strtok($logo_file, '#');
 
         if (strpos($logo_file, '/images/') === 0) {
             return $logo_file;

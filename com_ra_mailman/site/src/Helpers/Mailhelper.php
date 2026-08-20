@@ -106,7 +106,7 @@ class Mailhelper {
 //      Add the logo block if a file is configured.
         if (($logo != '') && file_exists(JPATH_ROOT . $logo)) {
             $header .= '<a href="' . $setup->website . '" style="flex-shrink: 0; display: flex;">';
-            $header .= '<img src="' . $this->encodeImageAsDataUri(JPATH_ROOT . $logo) . '" ';
+            $header .= '<img src="' . $this->resizeAndEncodeImageAsDataUri(JPATH_ROOT . $logo, $setup->width, $setup->height) . '" ';
             // Some mail clients (e.g. Spark) strip/ignore the style attribute on images
             // and only honour real HTML width/height attributes - set both so the
             // configured size is respected everywhere.
@@ -706,6 +706,60 @@ class Mailhelper {
             $mime = ['png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'][$ext] ?? 'image/jpeg';
         }
         return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+    }
+
+    private function resizeAndEncodeImageAsDataUri($path, $targetWidth, $targetHeight) {
+        // Some mail clients render inline base64 images at their real pixel size and
+        // ignore both CSS and HTML width/height attributes entirely (confirmed with
+        // Spark Mail on a large logo file) - resizing the actual image data before
+        // encoding makes the configured size stick everywhere, not just clients that
+        // honour sizing hints.
+        $targetWidth = max(1, (int) $targetWidth);
+        $targetHeight = max(1, (int) $targetHeight);
+
+        if (!function_exists('imagecreatetruecolor')) {
+            return $this->encodeImageAsDataUri($path);
+        }
+
+        $info = @getimagesize($path);
+        if ($info === false) {
+            return $this->encodeImageAsDataUri($path);
+        }
+        [$sourceWidth, $sourceHeight, $type] = $info;
+
+        $source = null;
+        switch ($type) {
+            case IMAGETYPE_JPEG:
+                $source = @imagecreatefromjpeg($path);
+                break;
+            case IMAGETYPE_PNG:
+                $source = @imagecreatefrompng($path);
+                break;
+            case IMAGETYPE_GIF:
+                $source = @imagecreatefromgif($path);
+                break;
+            case IMAGETYPE_WEBP:
+                if (function_exists('imagecreatefromwebp')) {
+                    $source = @imagecreatefromwebp($path);
+                }
+                break;
+        }
+        if (!$source) {
+            return $this->encodeImageAsDataUri($path);
+        }
+
+        $resized = imagecreatetruecolor($targetWidth, $targetHeight);
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+        imagecopyresampled($resized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+        imagedestroy($source);
+
+        ob_start();
+        imagepng($resized);
+        $data = ob_get_clean();
+        imagedestroy($resized);
+
+        return 'data:image/png;base64,' . base64_encode($data);
     }
 
     private function embedBodyImages($html) {

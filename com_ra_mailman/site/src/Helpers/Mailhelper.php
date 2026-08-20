@@ -1134,7 +1134,7 @@ class Mailhelper {
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
-            $this->messages[] = 'DIAG: buildMessage() returned false: ' . ($this->message ?? '(no message)');
+            $this->messages[] = $this->message ?? 'Unable to build mailshot body';
             return false;
         }
         if ($item->event_id > 0) {
@@ -1147,20 +1147,25 @@ class Mailhelper {
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
         $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');
 
+        // buildMessage() deliberately excludes the footer (list footer + component
+        // email_footer text) - sendEmails() appends it per-recipient along with a
+        // personalised un-subscribe link. A draft send has no real subscriber/token to
+        // build that link for, so the footer text is shown without it.
+        $full_message = $mailshot_body . '</div>' . $this->footer . '</div></body></html>';
+
         $count = 0;
         // Send message to the editor of the message
-        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $full_message, $this->attachments)) {
             $message = 'Draft email sent to ' . $user_email . ' ' . $attachmentNote . ', reply to ' . $reply_to;
             $count++;
         } else {
             $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
-            $this->messages[] = 'DIAG: sendEmail() to ' . $user_email . ' returned false';
+            $this->messages[] = $this->message;
             return 0;
         }
-//        die('user email ' . $user_email . '<br>' . $this->message);
 //      If current user not the list owner, send another copy to the owner, reply_to = author
         if (!$selfOnly && $user_email !== $owner_email) {
-            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $full_message, $this->attachments)) {
                 $message .= ', also sent to the owner at ' . $owner_email;
                 $count++;
             } else {
@@ -1360,6 +1365,13 @@ class Mailhelper {
                     return false;
                 }
 
+                // Check not already sent an email to this subscriber
+                if ($subscriber->email == $current_email) {
+                    $message = 'Duplicate message suppressed for ' . $subscriber->email;
+                    $this->messages[] = $message;
+                    $this->toolsHelper->createLog('RA Mailman', '12', $mailshot_id, $message);
+                    continue;
+                }
 
                 $message = $mailshot_body;
                 $message .= '</div>';

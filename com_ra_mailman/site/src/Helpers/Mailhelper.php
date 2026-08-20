@@ -107,7 +107,7 @@ class Mailhelper {
         if (($logo != '') && file_exists(JPATH_ROOT . $logo)) {
             $header .= '<a href="' . $setup->website . '" style="flex-shrink: 0; display: flex;">';
             $header .= '<img src="' . $this->encodeImageAsDataUri(JPATH_ROOT . $logo) . '" ';
-            $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%; height: auto;" ';
+            $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%;" ';
             $header .= 'alt="Logo">';
             $header .= '</a>';
         } elseif ($logo != '') {

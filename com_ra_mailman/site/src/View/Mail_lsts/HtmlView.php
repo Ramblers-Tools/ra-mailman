@@ -30,6 +30,8 @@ use \Joomla\CMS\Component\ComponentHelper;
 use \Joomla\CMS\Factory;
 use \Joomla\CMS\Language\Text;
 use \Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
+use \Joomla\CMS\Router\Route;
+use \Joomla\CMS\Uri\Uri;
 use \Joomla\CMS\User\CurrentUserInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
@@ -53,7 +55,7 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
     protected $user;
     protected $last_sent;
 
-    function defineActions($list_id, $list_type, $emails_outstanding, $last_mailshot) {
+    function defineActions($list_id, $list_type, $emails_outstanding, $last_mailshot, $count_subscribers = 0) {
         /*
          * invoked from the template to set up the required action buttons for the last column of the report
          * $list_type will be Open / Closed
@@ -62,7 +64,8 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             return '';
         }
         if ($emails_outstanding > 0) {
-            return '';
+            $editSchedule = $last_mailshot->is_scheduled ? $this->scheduleControl($last_mailshot, $count_subscribers, 'Edit schedule') : '';
+            return $editSchedule . $this->cancelButton($list_id);
         }
         if ($this->mailHelper->isAuthor($list_id)) {
             if ((is_null($last_mailshot->date_sent))
@@ -78,7 +81,13 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             } else {
                 $caption = 'Create';
             }
-            return $this->toolsHelper->buildLink($target . '&list_id=' . $list_id, $caption, False, "link-button button-p0159");
+            $actions = $this->toolsHelper->buildLink($target . '&list_id=' . $list_id, $caption, False, "link-button button-p0159");
+            $actions .= $this->sendButton($last_mailshot, $count_subscribers);
+            $actions .= $this->scheduleControl($last_mailshot, $count_subscribers);
+            if ($caption === 'Edit') {
+                $actions .= $this->discardButton($last_mailshot);
+            }
+            return $actions;
         }
 
         // See if User is already subscribed
@@ -249,12 +258,36 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             $target = $target_send . $last_mailshot->id . '&total=' . $count_subscribers;
 //                                           $target = 'administrator/index.php?option=com_ra_mailman&task=mailshot.send&mailshot_id='  . '&menu_id=' . $this->menu_id;
             if (is_null($last_mailshot->processing_started)) {
-                $label = 'Send';
+                $label = 'Send Now';
             } else {
                 $count = $this->mailHelper->countSubscribersOutstanding($last_mailshot->id);
                 $label = 'Resend to ' . $count;
             }
             return $this->toolsHelper->buildButton($target, $label, False);
+        }
+    }
+
+    protected function scheduleControl($last_mailshot, $count_subscribers, $label = 'Schedule') {
+        if (($last_mailshot->id > 0) AND is_null($last_mailshot->date_sent) AND is_null($last_mailshot->processing_started)) {
+            $html = '<button type="button" class="link-button button-p0159" ';
+            $html .= 'onclick="raMailmanOpenSchedule(' . (int) $last_mailshot->id . ', ' . (int) $count_subscribers . ', \'' . rtrim(Uri::root(), '/') . '/index.php\', \'' . addslashes((string) $last_mailshot->send_after) . '\')">';
+            $html .= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</button>';
+            return $html;
+        }
+    }
+
+    protected function discardButton($last_mailshot) {
+        $target = 'index.php?option=com_ra_mailman&task=mailshot.discard&mailshot_id=' . $last_mailshot->id;
+        $html = '<a class="link-button button-p0186" href="' . Route::_($target) . '" ';
+        $html .= 'onclick="return confirm(\'Discard this mailshot? All its data will be permanently lost.\');">';
+        $html .= 'Discard</a>';
+        return $html;
+    }
+
+    protected function cancelButton($list_id) {
+        if ($this->mailHelper->isAuthor($list_id)) {
+            $target = 'index.php?option=com_ra_mailman&task=mailshot.cancelSending&mailshot_id=' . $this->mailHelper->lastMailshot($list_id)->id;
+            return $this->toolsHelper->buildButton($target, 'Cancel sending', False, 'red');
         }
     }
 

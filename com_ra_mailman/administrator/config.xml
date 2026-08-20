@@ -19,17 +19,17 @@
                default="Sent from xxx Ramblers using the MailMan software package" 
                label="Email Header" 
                description="Text at the top of all messages"/>
-        <field name="email_footer" 
-               filter="safehtml" 
-               type="textarea" 
-               default="The Ramblers, 13 Dirty Lane, London SE1 9PA" 
-               label="System footer" 
+        <field name="email_footer"
+               filter="raw"
+               type="textarea"
+               default="The Ramblers, 13 Dirty Lane, London SE1 9PA"
+               label="System footer"
                required="true"
                description="Text to appear at the end of every email" />
         <field name="website"
                 type="text"
-                label="Website address" 
-                description="Used when creating links in emails for Unsubscribe, Renewals etc" 
+                label="Website address"
+                description="Used when creating links in emails for Unsubscribe, Renewals etc"
                 required="true"
                 hint="https://xxxramblers.org.uk"/>
         <field
@@ -76,40 +76,6 @@
             default="rgba(155, 200, 171, 1)"
             description="Background colour of the email footer"
         />
-    </fieldset>
-    <fieldset label="Logo" name="logo">  *
-        <field name="note1" type="note" label="If the file is found in folder /images/com_ra_mailman, it will be added to the top of each email."/>      
-        <field name="logo_file"
-                type="text"
-                label="Logo" 
-                description="Name of the file to be displayed at top of each email" 
-                required="true"
-                hint="Logo.png"/>
-        <field name="note2" type="note" label="You can specify here the size at which it should be displayed."/>
-        <field name="height"
-               maxlength="3" 
-               filter="safehtml" 
-               type="text" 
-               label="Height" 
-               description="Height of the image, in pixels" 
-               default="90"/>     
-        <field name="width"
-               maxlength="3" 
-               filter="safehtml" 
-               type="text" 
-               label="Width" 
-               description="Width of the image, in pixels" 
-               default="90"/>             
-        <field
-            name="logo_align"
-            type="radio"
-            label="Logo alignment:"
-            description="Whether logo should float to the right or to the left"
-            default="right"
-            >
-            <option value="right">Right</option>
-            <option value="left">Left</option>
-        </field>    
     </fieldset>
     <fieldset label="Registration" name="registration">
         <field name="welcome_message"

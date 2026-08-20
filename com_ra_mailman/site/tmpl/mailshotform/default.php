@@ -105,26 +105,31 @@ $toolsHelper = new ToolsHelper;
                     <div class="controls">
 
                         <?php if ($this->canSave): ?>
-                            <button type="submit" class="validate btn btn-primary" name="save_quit">
-                                <span class="fas fa-check" aria-hidden="true"></span>
-                                <?php echo Text::_('Save & Close'); ?>
-                            </button>
                             <button type="submit" class="validate btn btn-success" name="save_continue" onclick="this.form.task.value = 'mailshotform.savecontinue';">
                                 <span class="fas fa-save" aria-hidden="true"></span>
-                                <?php echo Text::_('Save & Continue'); ?>
+                                <?php echo Text::_('Save'); ?>
+                            </button>
+                            <button type="submit" class="validate btn btn-info" name="send_test" onclick="this.form.task.value = 'mailshotform.sendtest';">
+                                <span class="fas fa-paper-plane" aria-hidden="true"></span>
+                                <?php echo Text::_('Send Test Email'); ?>
                             </button>
                         <?php endif; ?>
+                        <?php
+                        $cancelTarget = 'index.php?option=com_ra_mailman&task=mailshotform.cancel';
+                        $cancelTarget .= '&list_id=' . (int) ($this->item->mail_list_id ?? 0);
+                        $cancelTarget .= '&Itemid=' . Factory::getApplication()->input->getInt('Itemid', 0);
+                        ?>
                         <a class="btn btn-danger"
-                           href="<?php echo Route::_('index.php?option=com_ra_mailman&task=mailshotform.cancel'); ?>"
-                           title="<?php echo Text::_('JCANCEL'); ?>">
+                           href="<?php echo Route::_($cancelTarget); ?>"
+                           title="<?php echo Text::_('Close'); ?>">
                             <span class="fas fa-times" aria-hidden="true"></span>
-                            <?php echo Text::_('JCANCEL'); ?>
+                            <?php echo Text::_('Close'); ?>
                         </a>
                     </div>
                 </div>
 
                 <input type="hidden" name="option" value="com_ra_mailman"/>
-                <input type="hidden" name="task" value="mailshotform.save"/>
+                <input type="hidden" name="task" value="mailshotform.savecontinue"/>
                 <?php echo HTMLHelper::_('form.token'); ?>
             </form>
         <?php endif; ?>

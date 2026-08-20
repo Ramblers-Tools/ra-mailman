@@ -7,6 +7,7 @@
  * 31/07/25 CB this->version_required
  * 09/08/25 CB ra_mail_lists / emails_outstanding
  * 06/04/26 CB add mail_list/description
+ * 15/08/26 CB add send_after and is_scheduled to ra_mail_shots
  */
 
 \defined('_JEXEC') or die;
@@ -362,6 +363,14 @@ class Com_Ra_mailmanInstallerScript {
     public function update($parent): bool {
         echo '<p>Updating RA MailMan (com_ra_mailman)</p>';
 
+// Runs on every update regardless of current_version, unlike preflight() (which
+// short-circuits at version_required='4.7.5' and never reaches its own reply_to
+// checkColumn call for any site already past that version - i.e. every real site).
+// checkColumn() checks information_schema first, so this is safe to run whether or
+// not the column already exists (some sites got it via the old preflight path,
+// most didn't).
+        $this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ');
+
 // You can have the backend jump directly to the newly updated component configuration page
 // $parent->getParent()->setRedirectURL('index.php?option=com_ra_mailman');
         return true;
@@ -419,7 +428,7 @@ class Com_Ra_mailmanInstallerScript {
             return false;
         }
 
-        $tools_required = '3.7.2';
+        $tools_required = '4.0.0';
         $tools_version = $this->getVersion('com_ra_tools');
         echo '<p>Version ' . $tools_required . ' of com_ra_tools required<br>';
         if (version_compare($tools_version, $tools_required, 'ge')) {
@@ -431,7 +440,18 @@ class Com_Ra_mailmanInstallerScript {
 //           return false;
         }
 
-        $this->version_required = '4.7.5';
+        $this->version_required = '5.0.16';
+        if (version_compare($this->current_version, '5.0.14', 'le')) {
+            $this->checkColumn('ra_mail_shots', 'send_after', 'A', 'DATETIME NULL AFTER processing_started; ');
+            $this->checkColumn('ra_mail_shots', 'is_scheduled', 'A', 'TINYINT NULL AFTER send_after; ');
+        }
+        if (version_compare($this->current_version, '4.7.8', 'le')) {
+            $this->checkColumn('ra_profiles', 'groups_to_follow', 'U', 'VARCHAR(100) NULL; ');
+            $this->checkColumn('ra_profiles', 'title', 'U', 'VARCHAR(12) NULL; ');
+            $this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ');
+            $this->checkColumn('ra_api_sites', 'sub_system', 'U', 'VARCHAR(12) NOT NULL; ');
+            $this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ');
+        }
 
         if (version_compare($this->current_version, $this->version_required, 'ge')) {
             echo 'Current version is ' . $this->current_version . ', no additional processing required</p>';
@@ -456,45 +476,6 @@ class Com_Ra_mailmanInstallerScript {
         }
         if (version_compare($this->current_version, '4.5.0', 'le')) {
             $this->checkColumn('ra_mail_lists', 'emails_outstanding', 'A', 'INT DEFAULT "0" AFTER footer; ');
-        }
-        if (version_compare($this->current_version, '4.4.4', 'le')) {
-            $details = '(
-            `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-            `date_phase1` DATETIME NOT NULL ,
-            `date_completed` DATETIME NULL ,
-            `method_id` int(11) NOT NULL,
-            `list_id` int(11) NOT NULL,
-            `user_id` int(11) NOT NULL,
-            `num_records` INT  NOT NULL DEFAULT "0",
-            `num_errors` INT  NOT NULL DEFAULT "0",
-            `num_users` INT  NOT NULL DEFAULT "0",
-            `num_subs` INT  NOT NULL DEFAULT "0",
-            `num_lapsed` INT  NOT NULL DEFAULT "0",
-            `ip_address` VARCHAR(255)  NULL  DEFAULT "",
-            `error_report` MEDIUMTEXT  DEFAULT NULL,
-            `new_users` MEDIUMTEXT DEFAULT NULL,
-            `new_subs` MEDIUMTEXT DEFAULT NULL,
-            `lapsed_members` MEDIUMTEXT DEFAULT NULL,
-            `input_file` VARCHAR(255) NOT NULL,
-            `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `created_by` INT NULL DEFAULT "0",
-            `modified` DATETIME NULL DEFAULT NULL,
-            `modified_by` INT NULL DEFAULT "0",
-            `checked_out_time` DATETIME NULL  DEFAULT NULL ,
-            `checked_out` INT NULL,
-            `state` TINYINT(1)  NULL  DEFAULT 1,
-            PRIMARY KEY (`id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;';
-            $this->checkTable('ra_import_reports', $details);
-        }
-        if (version_compare($this->current_version, '4.7.8', 'le')) {
-            $this->checkColumn('ra_profiles', 'groups_to_follow', 'U', 'VARCHAR(100) NULL; ');
-            $this->checkColumn('ra_profiles', 'title', 'U', 'VARCHAR(12) NULL; ');
-            $this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ');
-            $this->checkColumn('ra_api_sites', 'sub_system', 'U', 'VARCHAR(12) NOT NULL; ');
-        }
-        if (version_compare($this->current_version, '4.7.8', 'le')) {
-            $this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ');
         }
         return true;
     }

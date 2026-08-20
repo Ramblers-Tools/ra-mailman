@@ -619,6 +619,9 @@ class ReportsController extends FormController {
         echo $this->breadcrumbs;
         echo '<h4>Scope ' . $this->subheading . '</h4>';
         $setup = $this->mailHelper->getEmailSetup();
+        if (JDEBUG) {
+            var_dump($setup);
+        }
         $params = ComponentHelper::getParams('com_ra_mailman');
 
         echo $this->mailHelper->buildEmailHeader($setup);

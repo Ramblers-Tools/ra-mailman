@@ -14,7 +14,7 @@
     <author>Ramblers Tools</author>
     <authorEmail>support@ramblers.tools</authorEmail>
     <authorUrl>https://ramblers.tools</authorUrl>
-    <version>5.0.0</version>
+    <version>5.1.0</version>
     <description>Support for Mailing lists</description>
     <namespace path="src">Ramblers\Component\Ra_mailman</namespace>
     <!-- scriptfile>script.php</scriptfile -->

@@ -593,18 +593,22 @@ class Mailhelper {
 
     public function getEmailSetup() {
         $params = ComponentHelper::getParams('com_ra_mailman');
+        // Logo/height/width/logo_align now come from com_ra_tools's own component
+        // config, not from a per-organisation logo or com_ra_mailman's own settings -
+        // one logo for the whole installation, matching the site's own website.
+        $toolsParams = ComponentHelper::getParams('com_ra_tools');
 
         $setup = (object) [
                     'website' => $params->get('website', ''),
                     'email_header' => $params->get('email_header', ''),
                     'email_footer' => $params->get('email_footer', ''),
-                    'logo_file' => $params->get('logo_file', ''),
-                    'logo_align' => $params->get('logo_align', 'right'),
+                    'logo_file' => $toolsParams->get('logo', ''),
+                    'logo_align' => $toolsParams->get('logo_align', 'right'),
                     'colour_header' => $params->get('colour_header', 'rgba(20, 141, 168, 0.5)'),
                     'colour_body' => $params->get('colour_body', 'rgba(20, 141, 168, 0.5)'),
                     'colour_footer' => $params->get('colour_footer', 'rgba(20, 141, 168, 0.8)'),
-                    'height' => $params->get('height', 90),
-                    'width' => $params->get('width', 90),
+                    'height' => $toolsParams->get('height', 90),
+                    'width' => $toolsParams->get('width', 90),
                     'setup_source' => 'Component configuration',
                     'setup_code' => '',
         ];
@@ -616,7 +620,7 @@ class Mailhelper {
         }
 
         if (!empty($code) && $code !== 'N') {
-            $sql = 'SELECT code, name, website, email_header, logo, logo_align, colour_header, colour_body, colour_footer ';
+            $sql = 'SELECT code, name, website, email_header, colour_header, colour_body, colour_footer ';
             $sql .= 'FROM #__ra_organisations ';
             $sql .= 'WHERE code=' . $this->db->quote($code);
             $item = $this->toolsHelper->getItem($sql);
@@ -642,12 +646,9 @@ class Mailhelper {
             if (!empty($item->email_header)) {
                 $setup->email_header = $item->email_header;
             }
-            if (!empty($item->logo)) {
-                $setup->logo_file = $item->logo;
-            }
-            if (!empty($item->logo_align)) {
-                $setup->logo_align = $item->logo_align;
-            }
+            // logo/logo_align are deliberately NOT overridden from the organisation
+            // record - the logo is now a single, installation-wide setting sourced from
+            // com_ra_tools's own component config, not per-group.
             if (!empty($item->colour_header)) {
                 $setup->colour_header = $item->colour_header;
             }

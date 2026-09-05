@@ -8,7 +8,7 @@
  * 09/08/25 CB ra_mail_lists / emails_outstanding
  * 06/04/26 CB add mail_list/description
  * 15/08/26 CB add send_after and is_scheduled to ra_mail_shots
- */
+ * 05/09/26 CB remove JFactory, obtain DatabaseInterface from Joomla, fix deleteFolder
 
 \defined('_JEXEC') or die;
 
@@ -19,7 +19,6 @@ use Joomla\CMS\Filesystem\Folder;
 use Joomla\CMS\Installer\InstallerAdapter;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
-use Joomla\CMS\Object\CMSObject;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Database\DatabaseInterface;
 
@@ -30,6 +29,11 @@ class Com_Ra_mailmanInstallerScript {
     private $minimumPHPVersion = JOOMLA_MINIMUM_PHP;
     private $reconfigure_message;
     private $required_version;
+    private $current_version;
+    private $original_version;
+    private $version_required;
+    private $dbPrefix;
+    private $db;
 
     function buildButton($url, $text, $newWindow = 0, $colour = '') {
         if ($colour == '') {
@@ -60,8 +64,7 @@ class Com_Ra_mailmanInstallerScript {
             return true;
         }
         if (($mode == 'U') AND ($count == 0)) {
-            echo 'Field ' . $column . ' not found in ' . $table_name . '<br>';
-            return false;
+            return $this->fail('Installer could not update missing field ' . $table_name . '.' . $column . '.');
         }
 
         $sql = 'ALTER TABLE ' . $table_name . ' ';
@@ -76,17 +79,16 @@ class Com_Ra_mailmanInstallerScript {
         }
         echo "$sql<br>";
         $response = $this->executeCommand($sql);
-        if ($response) {
-            echo 'Success';
-        } else {
-            echo 'Failure';
+        if (!$response) {
+            return $this->fail('Installer failed to alter database table ' . $table_name . '.');
         }
-        echo ' for ' . $table_name . '<br>';
-        return $count;
+
+        echo 'Success for ' . $table_name . '<br>';
+        return true;
     }
 
     private function checkColumnExists($table, $column) {
-        $config = JFactory::getConfig();
+        $config = Factory::getApplication()->getConfig();
         $database = $config->get('db');
         $this->dbPrefix = $config->get('dbprefix');
 
@@ -104,25 +106,28 @@ class Com_Ra_mailmanInstallerScript {
         echo 'Checking version of com_ra_tools<br>';
         if (ComponentHelper::isEnabled('com_ra_tools', true)) {
             $tools_versions = $this->getVersions('com_ra_tools');
-            echo '<p>com_ra_tools is currently at version ' . $tools_versions->component;
-            echo ', database version ' . $tools_versions->db_version . '</p>';
-            if (version_compare($tools_versions->component, '5.0.2', '>')) {
-                echo 'Greater than 5.0.2, OK<br>';
-                return true;
-            } else {
-                echo 'Minimum required version of tools is 5.0.2<br>';
+
+            if ($tools_versions === false) {
                 return false;
             }
+
+            echo '<p>com_ra_tools is currently at version ' . $tools_versions->component;
+            echo ', database version ' . $tools_versions->db_version . '</p>';
+            if (version_compare($tools_versions->component, '4.0.0', 'ge')) {
+                echo 'Version 4.0.0 or later, OK<br>';
+                return true;
+            } else {
+                return $this->fail('This operation requires com_ra_tools version 4.0.0 or later.');
+            }
         } else {
-            echo 'This component cannot be installed unless component RA Tools (com_ra_tools) is installed first';
-            return false;
+            return $this->fail('This operation requires the enabled component com_ra_tools.');
         }
         return true;
     }
 
     function checkTable($table, $details, $details2 = '') {
 
-        $config = JFactory::getConfig();
+        $config = Factory::getApplication()->getConfig();
         $database = $config->get('db');
         $this->dbPrefix = $config->get('dbprefix');
 
@@ -143,8 +148,7 @@ class Com_Ra_mailmanInstallerScript {
         if ($response) {
             echo 'Table created OK<br>';
         } else {
-            echo 'Failure<br>';
-            return false;
+            return $this->fail('Installer failed to create database table ' . $table_name . '.');
         }
         if ($details2 != '') {
             $sql = 'ALTER TABLE ' . $table_name . ' ' . $details2;
@@ -152,10 +156,11 @@ class Com_Ra_mailmanInstallerScript {
             if ($response) {
                 echo 'Table altered OK<br>';
             } else {
-                echo 'Failure<br>';
-                return false;
+                return $this->fail('Installer failed to alter database table ' . $table_name . '.');
             }
         }
+
+        return true;
     }
 
     private function deleteFile($target) {
@@ -165,9 +170,9 @@ class Com_Ra_mailmanInstallerScript {
             echo 'File ' . $file . ' found,';
             File::delete($file);
             if (file_exists($file)) {
-                echo ' deleted<br>';
-            } else {
                 echo ' but unable to delete<br>';
+            } else {
+                echo ' deleted<br>';
             }
         } else {
             echo "Unable to delete $file: file not found<br>";
@@ -179,11 +184,11 @@ class Com_Ra_mailmanInstallerScript {
         $folder = JPATH_ROOT . $target;
         if (file_exists($folder)) {
             echo 'Folder ' . $folder . ' found,';
-            Folder::delete($folder);
-            if (file_exists($folder)) {
-                echo ' deleted<br>';
-            } else {
+            $deleted = Folder::delete($folder);
+            if (!$deleted || file_exists($folder)) {
                 echo ' but unable to delete<br>';
+            } else {
+                echo ' deleted<br>';
             }
         } else {
             echo 'Unable to delete ' . $folder . ': folder not found<br>';
@@ -209,30 +214,29 @@ class Com_Ra_mailmanInstallerScript {
         $this->deleteFolder($application . '/components/' . $component . '/tmpl/' . strtolower($view));
     }
 
+    private function getDatabase(): DatabaseInterface {
+        if ($this->db === null) {
+            $this->db = Factory::getContainer()->get(DatabaseInterface::class);
+        }
+
+        return $this->db;
+    }
+
     private function executeCommand($sql) {
-        $db = JFactory::getDbo();
-        $query = $db->getQuery(true);
+        $db = $this->getDatabase();
         $db->setQuery($sql);
         return $db->execute();
     }
 
-    public function getDatabaseVersion($component = 'com_ra_events') {
-// Get the extension ID
-        $db = JFactory::getDbo();
-        $eid = $this->getExtensionId($component);
+    private function fail(string $message): bool {
+        Factory::getApplication()->enqueueMessage($message, 'error');
+        Log::add($message, Log::ERROR, 'jerror');
 
-        if ($eid != null) {
-// Get the schema version
-            $query = $db->getQuery(true);
-            $query->select('manifest_cache')
-                    ->from('#__extensions')
-                    ->where('extension_id = ' . $db->quote($eid));
-            $db->setQuery($query);
-            $json = $db->loadResult();
-            $values = json_decode($json->manifest_cache);
-            return $version;
-        }
-        return null;
+        return false;
+    }
+
+    public function getDatabaseVersion($component = 'com_ra_mailman') {
+        return $this->getDbVersion($component);
     }
 
     public function getDbVersion($component = 'com_ra_mailman') {
@@ -248,8 +252,9 @@ class Com_Ra_mailmanInstallerScript {
         $sql = 'SELECT manifest_cache ';
         $sql .= 'FROM  #__extensions  ';
         $sql .= 'WHERE element="' . $component . '"';
-        $data = json_decode($this->getValue($sql));
-        return $data->version;
+        $data = json_decode((string) $this->getValue($sql));
+
+        return (is_object($data) && isset($data->version)) ? (string) $data->version : null;
     }
 
     /**
@@ -262,23 +267,28 @@ class Com_Ra_mailmanInstallerScript {
         // Returns an object with two values:
         //  ->component
         //  ->db_version
-        $versions = new CMSObject;
+        $versions = new \stdClass;
         $sql = 'SELECT e.manifest_cache, s.version_id AS db_version ';
         $sql .= 'FROM #__extensions as e ';
         $sql .= 'LEFT JOIN #__schemas AS s ON s.extension_id = e.extension_id ';
         $sql .= 'WHERE element="' . $component . '"';
 
-        $db = Factory::getContainer()->get(DatabaseInterface::class);
+        $db = $this->getDatabase();
         $query = $db->getQuery(true);
         $db->setQuery($sql);
         $db->execute();
         $item = $db->loadObject();
         if ($item == false) {
-            echo 'Can\'t find versions for ' . $component . '<br>';
-            echo $db->replacePrefix($query) . '<br>';
+            $this->fail('Installer could not find version information for ' . $component . '.');
             return false;
         } else {
-            $values = json_decode($item->manifest_cache);
+            $values = json_decode((string) $item->manifest_cache);
+
+            if (!is_object($values) || !isset($values->version)) {
+                $this->fail('Installer found invalid version information for ' . $component . '.');
+                return false;
+            }
+
             $versions->component = $values->version;
             $versions->db_version = $item->db_version;
         }
@@ -292,7 +302,7 @@ class Com_Ra_mailmanInstallerScript {
      * @return mixed
      */
     public function getExtensionId($component = 'com_ra_mailman') {
-        $db = JFactory::getDbo();
+        $db = $this->getDatabase();
 
         $query = $db->getQuery(true);
         $query->select('extension_id')
@@ -305,44 +315,14 @@ class Com_Ra_mailmanInstallerScript {
     }
 
     private function getValue($sql) {
-        $db = JFactory::getDbo();
-        $query = $db->getQuery(true);
+        $db = $this->getDatabase();
         $db->setQuery($sql);
         return $db->loadResult();
     }
 
     public function install($parent): bool {
-        echo '<p>Installing RA MailMan (com_ra_mailman) ' . '</p>';
+        Factory::getApplication()->enqueueMessage('Installing RA MailMan (com_ra_mailman)', 'info');
 
-        if (ComponentHelper::isEnabled('com_ra_mailman', true)) {
-            $this->original_version = $this->getVersion();
-            echo '<p>com_ra_mailman found, version ' . $this->original_version;
-            echo ', database version ' . $this->getDbVersion() . '</p>';
-        }
-        if (ComponentHelper::isEnabled('com_ra_tools', true)) {
-            $tools_versions = $this->getVersions('com_ra_tools');
-
-            $tools_required = '3.5.5';
-            echo '<p>Version ' . $tools_required . ' of com_ra_tools required<br>';
-            if (version_compare($tools_version, $tools_required, 'ge')) {
-                echo '<p>Version ' . $tools_versions . ' of com_ra_tools found</p>';
-            } else {
-                echo 'Version ' . $tools_version . ' of com_ra_tools found</p>';
-                echo '<p>ERROR: Please install version of com_ra_tools >=' . $tools_required . '</p>';
-                return false;
-            }
-        } else {
-            echo 'This component cannot be installed unless component RA Tools (com_ra_tools) is installed first';
-            return false;
-        }
-
-
-//        $v_403 = '4.0.3';
-//        if (version_compare($versions->component, $v_403, '>')) {
-//            echo 'New version is greater than ' . $v_403 . '<br>';
-//        }
-//        $sql = "INSERT INTO `dev_ra_mail_access` (`id`, `name`)";
-//        $sql .= "VALUES ('1', 'Subscriber'), ('2', 'Author') ,('3', 'Owner') ";
         return true;
     }
 
@@ -355,21 +335,24 @@ class Com_Ra_mailmanInstallerScript {
     public function uninstall($parent): bool {
         echo '<p>Uninstalling RA MailMan (com_ra_mailman)<br>';
         $versions = $this->getVersions();
-        echo '<p>Version ' . $versions->component;
-        echo ', database version ' . $versions->db_version . '</p>';
+
+        if ($versions !== false) {
+            echo '<p>Version ' . $versions->component;
+            echo ', database version ' . $versions->db_version . '</p>';
+        }
+
         return true;
     }
 
     public function update($parent): bool {
-        echo '<p>Updating RA MailMan (com_ra_mailman)</p>';
+        Factory::getApplication()->enqueueMessage('Updating RA MailMan (com_ra_mailman)', 'info');
 
-// Runs on every update regardless of current_version, unlike preflight() (which
-// short-circuits at version_required='4.7.5' and never reaches its own reply_to
-// checkColumn call for any site already past that version - i.e. every real site).
+// Runs on every update regardless of current_version,
 // checkColumn() checks information_schema first, so this is safe to run whether or
-// not the column already exists (some sites got it via the old preflight path,
-// most didn't).
-        $this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ');
+// not the column already exists
+        if (!$this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ')) {
+            return false;
+        }
 
 // You can have the backend jump directly to the newly updated component configuration page
 // $parent->getParent()->setRedirectURL('index.php?option=com_ra_mailman');
@@ -377,97 +360,97 @@ class Com_Ra_mailmanInstallerScript {
     }
 
     public function postflight($type, $parent) {
-        'Postflight RA MailMan (com_ra_mailman)<br>';
+        Factory::getApplication()->enqueueMessage('Postflight RA MailMan (com_ra_mailman)', 'info');
 
         if ($type == 'uninstall') {
             return true;
         }
         echo '<p>com_ra_mailman is now at ' . $this->getVersion() . '</p>';
-        if ($reconfigure_message == true) {
+        if ($this->reconfigure_message == true) {
             $this->red('Please review and update the configuration settings for com_ra_mailman.');
         }
 
         echo '<b>Useful links</b><br>';
-        echo $this->buildButton('index.php?option=com_ra_tools&view=dashboard', 'Dashboard', 'granite') . '<br>';
+        echo $this->buildButton('index.php?option=com_ra_tools&view=dashboard', 'Dashboard', false,'granite') . '<br>';
         echo $this->buildButton('index.php?option=com_config&view=component&component=com_ra_mailman', 'Configure');
         return true;
     }
 
     public function preflight($type, $parent): bool {
-        echo 'Preflight RA MailMan (type=' . $type . ')<br>';
+        Factory::getApplication()->enqueueMessage('Preflight RA MailMan (type=' . $type . ')', 'info');
         if ($type == 'uninstall') {
             return true;
         }
-        if ($type == 'install') {
-            echo 'No action required on install<br>';
-            return true;
-        }
         if (!empty($this->minimumPHPVersion) && version_compare(PHP_VERSION, $this->minimumPHPVersion, '<')) {
-            Log::add(
-                    Text::sprintf('JLIB_INSTALLER_MINIMUM_PHP', $this->minimumPHPVersion),
-                    Log::WARNING,
-                    'jerror'
-            );
-            return false;
+            return $this->fail(Text::sprintf('JLIB_INSTALLER_MINIMUM_PHP', $this->minimumPHPVersion));
         }
         if (!empty($this->minimumJoomlaVersion) && version_compare(JVERSION, $this->minimumJoomlaVersion, '<')) {
-            Log::add(
-                    Text::sprintf('JLIB_INSTALLER_MINIMUM_JOOMLA', $this->minimumJoomlaVersion),
-                    Log::WARNING,
-                    'jerror'
-            );
-            return false;
-        }
-        if (ComponentHelper::isEnabled('com_ra_mailman', true)) {
-            $this->current_version = $this->getVersion();
-            echo 'com_ra_mailman already present, version=' . $this->getVersion();
-            echo ', DB version=' . $this->getDbVersion() . '<br>';
+            return $this->fail(Text::sprintf('JLIB_INSTALLER_MINIMUM_JOOMLA', $this->minimumJoomlaVersion));
         }
         if (!ComponentHelper::isEnabled('com_ra_tools', true)) {
-            echo 'Can only be installed if com_ra_tools is already present';
-            return false;
+            return $this->fail('RA Mailman requires the enabled component com_ra_tools.');
         }
 
         $tools_required = '4.0.0';
         $tools_version = $this->getVersion('com_ra_tools');
-        echo '<p>Version ' . $tools_required . ' of com_ra_tools required<br>';
+        Factory::getApplication()->enqueueMessage('Version ' . $tools_required . ' of com_ra_tools required', 'info');
         if (version_compare($tools_version, $tools_required, 'ge')) {
-            echo 'Version ' . $tools_version . ' of com_ra_tools found</p>';
+            Factory::getApplication()->enqueueMessage('Version ' . $tools_version . ' of com_ra_tools found', 'info');
         } else {
-            echo 'Version ' . $tools_version . ' of com_ra_tools found</p>';
-            echo $this->red('<p>WARNING: Requires version of com_ra_tools >=' . $tools_required);
-// If we return false, no message is displayed on the console, just "Custom installation failure"
-//           return false;
+            return $this->fail('RA Mailman requires com_ra_tools version ' . $tools_required
+                    . ' or later; found ' . ($tools_version ?: 'no readable version') . '.');
         }
+
+        if ($type == 'install') {
+            return true;
+        }
+
+        $this->current_version = $this->getVersion();
+
+        if ($this->current_version === null) {
+            return $this->fail('Unable to determine the currently installed com_ra_mailman version.');
+        }
+
+        Factory::getApplication()->enqueueMessage(
+                'com_ra_mailman already present, version ' . $this->current_version
+                . ', database version ' . ($this->getDbVersion() ?: 'not recorded'),
+                'info'
+        );
 
         $this->version_required = '5.0.16';
         if (version_compare($this->current_version, '5.0.14', 'le')) {
-            $this->checkColumn('ra_mail_shots', 'send_after', 'A', 'DATETIME NULL AFTER processing_started; ');
-            $this->checkColumn('ra_mail_shots', 'is_scheduled', 'A', 'TINYINT NULL AFTER send_after; ');
+            if (!$this->checkColumn('ra_mail_shots', 'send_after', 'A', 'DATETIME NULL AFTER processing_started; ')
+                    || !$this->checkColumn('ra_mail_shots', 'is_scheduled', 'A', 'TINYINT NULL AFTER send_after; ')) {
+                Factory::getApplication()->enqueueMessage('Unable to update ra_mail_shots: 5.0.14','warning');
+            }
         }
         if (version_compare($this->current_version, '4.7.8', 'le')) {
-            $this->checkColumn('ra_profiles', 'groups_to_follow', 'U', 'VARCHAR(100) NULL; ');
-            $this->checkColumn('ra_profiles', 'title', 'U', 'VARCHAR(12) NULL; ');
-            $this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ');
-            $this->checkColumn('ra_api_sites', 'sub_system', 'U', 'VARCHAR(12) NOT NULL; ');
-            $this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ');
+            if (!$this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ')
+                    || !$this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ')) {
+                Factory::getApplication()->enqueueMessage('Unable to update ra_mail_shots: 4.7.8','warning');
+            }
         }
 
         if (version_compare($this->current_version, $this->version_required, 'ge')) {
-            echo 'Current version is ' . $this->current_version . ', no additional processing required</p>';
+            Factory::getApplication()->enqueueMessage('Current version is ' . $this->current_version . ', no additional processing required','info');
             return true;
         } else {
-            echo '<p>Version is currently ' . $this->current_version . ', ';
-            echo 'Requires version >= ' . $this->version_required . '</p>';
+            Factory::getApplication()->enqueueMessage(
+                'Version is currently ' . $this->current_version . ', '
+                . 'Requires version >= ' . $this->version_required,
+                'warning'
+            );
         }
         if (version_compare($this->current_version, '4.7.0', 'le')) {
-            $this->checkColumn('ra_mail_lists', 'description', 'A', 'VARCHAR(512) DEFAULT "" AFTER name; ');
-            $sql = 'UPDATE `#__ra_mail_lists` SET record_type=\'\' ';
-//          this->executeCommand($sql);
-            $this->checkColumn('ra_mail_shots', 'record_type', 'A', 'VARCHAR(1) DEFAULT "M" AFTER id; ');
-            $this->checkColumn('ra_mail_shots', 'mail_list_id', 'U', 'INT NULL; ');
-            $this->checkColumn('ra_mail_shots', 'event_id', 'A', 'INT NULL AFTER mail_list_id; ');
-            $sql = 'UPDATE `#__ra_mail_shots` SET `record_type`=\'M\' ';
+            if (!$this->checkColumn('ra_mail_lists', 'description', 'A', 'VARCHAR(512) DEFAULT "" AFTER name; ')) {
+                return false;
+            }
+            if (!$this->checkColumn('ra_mail_shots', 'record_type', 'A', 'VARCHAR(1) DEFAULT "M" AFTER id; ')
+                    || !$this->checkColumn('ra_mail_shots', 'mail_list_id', 'U', 'INT NULL; ')
+                    || !$this->checkColumn('ra_mail_shots', 'event_id', 'A', 'INT NULL AFTER mail_list_id; ')) {
+                Factory::getApplication()->enqueueMessage('Unable to update ra_mail_shots: 4.7.0','warning');
+            }
+            $sql = 'UPDATE `#__ra_mail_shots` SET `record_type`="M" ';
 //          $this->executeCommand($sql);
         }
         if (version_compare($this->current_version, '4.6.0', 'le')) {
@@ -475,7 +458,9 @@ class Com_Ra_mailmanInstallerScript {
             $this->deleteView('Profile');
         }
         if (version_compare($this->current_version, '4.5.0', 'le')) {
-            $this->checkColumn('ra_mail_lists', 'emails_outstanding', 'A', 'INT DEFAULT "0" AFTER footer; ');
+            if (!$this->checkColumn('ra_mail_lists', 'emails_outstanding', 'A', 'INT DEFAULT "0" AFTER footer; ')) {
+                return false;
+            }
         }
         return true;
     }

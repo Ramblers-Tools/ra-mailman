@@ -9,7 +9,8 @@
  * 06/04/26 CB add mail_list/description
  * 15/08/26 CB add send_after and is_scheduled to ra_mail_shots
  * 05/09/26 CB remove JFactory, obtain DatabaseInterface from Joomla, fix deleteFolder
-
+ *             add mail_shots / reply_to
+*/
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Component\ComponentHelper;
@@ -459,6 +460,12 @@ class Com_Ra_mailmanInstallerScript {
         }
         if (version_compare($this->current_version, '4.5.0', 'le')) {
             if (!$this->checkColumn('ra_mail_lists', 'emails_outstanding', 'A', 'INT DEFAULT "0" AFTER footer; ')) {
+                return false;
+            }
+        }
+
+        if (version_compare($this->current_version, '4.7.10', 'le')) {
+            if (!$this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'INT NULL DEFAULT NULL AFTER attachment; ')) {
                 return false;
             }
         }

@@ -10,6 +10,7 @@
  * 25/03/24 CB don't delete from profiles_audit
  * 14/01/24 CB delete records from subscriptions_audit
  * 23/06/26 CB $this->toolsHelper
+ * 12/09/26 CB PersonHelper
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -24,6 +25,7 @@ use Joomla\CMS\Uri\Uri;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
+use Ramblers\Component\Ra_tools\Site\Helpers\PersonHelper;
 
 /**
  * Profile controller class.
@@ -43,7 +45,7 @@ class ProfileController extends FormController {
     }
 
     public function cancel($key = null, $urlVar = null) {
-        $this->setRedirect(Route::_('/administrator/index.php?option=com_ra_tools&view=dashboard', false));
+        $this->setRedirect(Route::_('/administrator/index.php?option=com_ra_mailman&view=profiles', false));
     }
 
     public function create() {
@@ -74,35 +76,8 @@ class ProfileController extends FormController {
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
         $id = Factory::getApplication()->input->getInt('id', '0');
         echo 'Purging profile for ' . $id . '<br>';
-
-        if ($id > 0) {
-            $sql = 'DELETE FROM #__ra_profiles WHERE id=' . $id;
-            $this->toolsHelper->executeCommand($sql);
-            // delete details of any emails sent
-            $sql = 'DELETE FROM #__ra_mail_recipients WHERE user_id=' . $id;
-            echo $sql . '<br>';
-            $this->toolsHelper->executeCommand($sql);
-
-            // Delete any subscriptions
-            $sql = 'SELECT id FROM #__ra_mail_subscriptions WHERE user_id>' . $id;
-            $rows = $this->toolsHelper->getRows($sql);
-            foreach ($rows as $row) {
-                $sql = 'DELETE FROM  #__ra_mail_subscriptions_audit ';
-                $sql .= 'WHERE object_id=' . $row->id;
-                echo $sql . '<br>';
-                $this->toolsHelper->executeCommand($sql);
-                $sql = 'DELETE FROM #__ra_mail_subscriptions WHERE id=' . $id;
-                echo $sql . '<br>';
-                $this->toolsHelper->executeCommand($sql);
-            }
-//        echo $sql . '<br>';
-//        $this->toolsHelper->executeCommand($sql);
-            // delete profile audit records
-//                $sql = 'DELETE FROM #__ra_profiles_audit WHERE object_id=' . $id;
-//                echo $sql . '<br>';
-//                $this->toolsHelper->executeCommand($sql);
-//        }
-        }
+        $personHelper - new PersonHelper;
+        $personHelper->purgeProfile($id);
 
         $back = 'administrator/index.php?option=com_ra_mailman&task=reports.duffProfiles';
         echo $this->toolsHelper->backButton($back);
@@ -169,7 +144,6 @@ class ProfileController extends FormController {
             // Save the data in the session.
             $this->app->setUserState('com_ra_mailman.edit.profile.data', $data);
             // Redirect back to the edit screen.
-            $this->setMessage('Save failed, layout=' . $layout . ',id= ' . $id, $model->getError(), 'warning');
             $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=profile&layout=' . $layout . '&id=' . $id, false));
             $this->redirect();
         }

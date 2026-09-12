@@ -13,6 +13,7 @@
  * 12/02/25 CB use table from Administrator, not Site
  *             replace getIdentity with getSession()->get('user')
  * 24/08/25 CB change welcome message
+ * 12/09/26 CB deleted redundant edit and save functions
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Controller;
@@ -22,7 +23,6 @@ namespace Ramblers\Component\Ra_mailman\Site\Controller;
 use Joomla\CMS\Application\SiteApplication;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
-use \Joomla\CMS\Helper\ContentHelper;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Object\CMSObject;
@@ -57,168 +57,6 @@ class ProfileController extends FormController {
         // Flush the data from the session.
         $this->app->setUserState('com_ra_mailman.edit.profile.data', null);
         $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=mail_lsts', false));
-    }
-
-    /**
-     * Method to check out an item for editing and redirect to the edit form.
-     *
-     * @return  void
-     *
-     * @since   4.1.0
-     *
-     * @throws  Exception
-     */
-    public function edit($key = NULL, $urlVar = NULL) {
-        // Get the previous edit id (if any) and the current edit id.
-        $previousId = (int) $this->app->getUserState('com_ra_mailman.edit.profile.id');
-        $editId = $this->input->getInt('id', 0);
-        $user = Factory::getApplication()->getSession()->get('user');
-        if (!is_null($user->id)) {
-            $canDo = ContentHelper::getActions('com_ra_mailman');
-            if (!$canDo->get('core.create')) {
-                Factory::getApplication() > enqueueMessage('Sorry, you don\'t have permission to create new Users', 'error');
-                $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=mail_lsts', false));
-                return;
-            }
-        }
-        // Set the user id for the user to edit in the session.
-        $this->app->setUserState('com_ra_mailman.edit.profile.id', $editId);
-
-        // Get the model.
-        $model = $this->getModel('Profile', 'Administrator');
-
-        // Check out the item
-        if ($editId) {
-            $model->checkout($editId);
-        }
-
-        // Check in the previous user.
-        if ($previousId) {
-            $model->checkin($previousId);
-        }
-
-        // Redirect to the edit screen.
-        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=profile&layout=edit', false));
-    }
-
-    /**
-     * Method to save data.
-     *
-     * @return  void
-     *
-     * @throws  Exception
-     * @since   4.1.0
-     */
-    public function save($key = NULL, $urlVar = NULL) {
-        // Check for request forgeries.
-        $this->checkToken();
-        $this->app->enqueueMessage('Model: Token is valid', 'info');
-        // Initialise variables.
-        $model = $this->getModel('Profile', 'Site');
-        if (is_null($model)) {
-            $this->app->enqueueMessage('Unable to get Model: Null', 'error');
-//            die('Unable to get Model');
-            return false;
-        }
-        if ($model == false) {
-            $this->app->enqueueMessage('Unable to get Model: false', 'error');
-//            die('Unable to get Model');
-            return false;
-        }
-        // Get the user data.
-        $data = $this->input->get('jform', array(), 'array');
-
-        // Validate the posted data.
-        $form = $model->getForm();
-
-        if (!$form) {
-            throw new \Exception($model->getError(), 500);
-        }
-
-        // Send an object which can be modified through the plugin event
-        $objData = (object) $data;
-        $this->app->triggerEvent(
-                'onContentNormaliseRequestData',
-                array($this->option . '.' . $this->context, $objData, $form)
-        );
-        $data = (array) $objData;
-
-        // Validate the posted data.
-        $data = $model->validate($form, $data);
-
-        // Check for errors.
-        if ($data === false) {
-//            die('errors');
-            // Get the validation messages.
-            $errors = $model->getErrors();
-
-            // Push up to three validation messages out to the user.
-            for ($i = 0, $n = count($errors); $i < $n && $i < 3; $i++) {
-                if ($errors[$i] instanceof \Exception) {
-                    $this->app->enqueueMessage($errors[$i]->getMessage(), 'warning');
-                } else {
-                    $this->app->enqueueMessage($errors[$i], 'warning');
-                }
-            }
-
-            $jform = $this->input->get('jform', array(), 'ARRAY');
-
-            // Save the data in the session.
-            $this->app->setUserState('com_ra_mailman.edit.profile.data', $jform);
-
-            // Redirect back to the edit screen.
-            $menu = Factory::getApplication()->getMenu();
-            $item = $menu->getActive();
-            $url = $item->link . '&id=' . $item->id;
-            $this->setRedirect(Route::_($url, false));
-
-            $this->redirect();
-        }
-
-        // Attempt to create a new user and a new profile
-        $new_user_id = $model->save($data);
-
-        // Check for errors.
-        if ($new_user_id === false) {
-            // Save the data in the session.
-            $this->app->setUserState('com_ra_mailman.edit.profile.data', $data);
-
-            // Redirect back to the edit screen.
-            $menu = Factory::getApplication()->getMenu();
-            $item = $menu->getActive();
-            $url = $item->link . '&Itemid=' . $item->id;
-//            var_dump($item->id);
-//            die($url);
-            $this->setRedirect(Route::_($url, false));
-            $this->redirect();
-        }
-//        die('no error from model');
-
-        if ($new_user_id == 0) {
-            $this->app->enqueueMessage('Unable to create User', 'error');
-//            die('Unable to create user');
-            return false;
-        }
-
-        // Clear the profile id from the session.
-        $this->app->setUserState('com_ra_mailman.edit.profile.id', null);
-
-        // Flush the data from the session.
-        $this->app->setUserState('com_ra_mailman.edit.profile.data', null);
-
-        // If self registering, redirect to thank you screen
-        // else show available mailing lists
-        $current_user = $this->app->getSession()->get('user')->id;
-        //    var_dump($current_user);
-        //    die;
-        if ($current_user == 0) {   // Self registering, redirect to welcome screen
-            $url = 'index.php?option=com_ra_mailman&task=profile.showWelcome&user_id=' . $new_user_id;
-        } else {                    // Administrator, redirect to allow selection of lists
-            $url = 'index.php?option=com_ra_mailman&view=list_select&user_id=' . $new_user_id;
-        }
-//        $this->app->enqueueMessage('Redirecting to ' . $url, 'info');
-        $this->setRedirect(Route::_($url, false));
-        $this->redirect();
     }
 
     public function showSubscriptionDetails() {

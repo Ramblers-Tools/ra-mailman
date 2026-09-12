@@ -109,7 +109,16 @@
             <option value="N">Create preferred name with Surname in full</option>
             <option value="Y">Create preferred name with first initial of Surname</option>
         </field>  
-      
+         <field
+            name="notify_new_user"
+            type="radio"
+            label="Notify new user:"
+            description="Action to be taken when a new user is registered"
+            default="N"
+            >
+            <option value="N">Do not notify the new user</option>
+            <option value="Y">Notify the new user</option>
+        </field>       
         <field name="email_domain"
                 type="text"
                 label="Email domain" 

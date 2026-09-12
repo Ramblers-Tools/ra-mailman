@@ -35,7 +35,6 @@ use \Joomla\CMS\MVC\Model\FormModel;
 use \Joomla\CMS\Object\CMSObject;
 use \Joomla\CMS\Helper\TagsHelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\MailHelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 /**
@@ -249,101 +248,6 @@ class ProfileModel extends FormModel {
         return array();
     }
 
-    /**
-     * Method to save the form data.
-     *
-     * @param   array $data The form data
-     *
-     * @return  bool
-     *
-     * @throws  Exception
-     * @since   4.1.0
-     */
-    public function save($data) {
-        $id = (!empty($data['id'])) ? $data['id'] : (int) $this->getState('profile.id');
-        $state = (!empty($data['state'])) ? 1 : 0;
-        $app = Factory::getApplication();
-        $user = $this->getCurrentUser();
-        $objUserHelper = new UserHelper;
-
-        if ($id) {
-// Check the user can edit this item
-            $authorised = $user->authorise('core.edit', 'com_ra_mailman') || $authorised = $user->authorise('core.edit.own', 'com_ra_mailman');
-            if ($authorised !== true) {
-                throw new \Exception(Text::_('JERROR_ALERTNOAUTHOR'), 403);
-            }
-//       } else {
-//           // Check the user can create new items in this section
-//           $authorised = $user->authorise('core.create', 'com_ra_mailman');
-        }
-
-// change group code to upper case
-        $group_code = strtoupper($data['group_code']);
-        $email = $data['email'];
-        $real_name = $data['real_name'];
-        $preferred_name = $data['preferred_name'];
-        // if user is logged in, and  Group / Name / Email match an existing user, allow selection of further lists
-        if ($user->id > 0) {
-            $user_id = $objUserHelper->checkExistingUser($email, $preferred_name, $group_code);
-            //           die($user_id);
-            if ($user_id > 0) {
-                Factory::getApplication()->enqueueMessage('This user already exists', 'Info');
-                return $user_id;
-            }
-        }
-
-        //      see if this email is already in use
-        $check_email = $objUserHelper->checkEmail($email, $preferred_name, $group_code);
-
-        if ($check_email === True) {
-
-        } else {
-            Factory::getApplication()->enqueueMessage($check_email, 'error');
-            return false;
-        }
-
-//      first create a user
-        $objUserHelper->group_code = $group_code;
-        $objUserHelper->name = $real_name;
-        $objUserHelper->preferred_name = $preferred_name;
-        $objUserHelper->email = $email;
-        // 14/11/23 Joomla classes do not properly link to groups, and do not send email
-        // changed to manual creation
-        if (0) {
-            // Create a User record using Joomla classes - this will trigger confirmatory email
-            // (but system must be configured properly)
-            $response = $objUserHelper->createUser();
-            if ($response == false) {
-                Factory::getApplication()->enqueueMessage('Model: creating Joomla user gave error' . $objUserHelper->error, 'error');
-                return false;
-            }
-        } else {
-            $response = $objUserHelper->createUserDirect('1');  // Set requireReset
-            if ($response == false) {
-                Factory::getApplication()->enqueueMessage('Model: creating MailMan user gave error' . $objUserHelper->error, 'error');
-                return false;
-            }
-        }
-
-// Get id of the user just created
-        $user_id = $objUserHelper->user_id;
-        if ($user_id > 0) {
-            // Create a profile record with the same id
-            $response = $objUserHelper->createProfile();
-            if ($response == true) {
-                Factory::getApplication()->enqueueMessage('Created profile record for ' . $preferred_name . ' in group ' . $group_code, 'info');
-            } else {
-                Factory::getApplication()->enqueueMessage($objUserHelper->error, 'error');
-                return false;
-            }
-
-            // Save the data in the session for the Controller to use
-            Factory::getApplication()->setUserState('com_ra_mailman.edit.profile.id', $user_id);
-            $this->subscribeDefault($user_id);
-        }
-        return $user_id;
-    }
-
     private function subscribeDefault($user_id) {
         // Sets a subscription to the Group's "Primary" list for a new User
         $objHelper = new ToolsHelper;
@@ -361,11 +265,6 @@ class ProfileModel extends FormModel {
             $message = 'Sorry, there is no default Newsletter for Group ' . $item->home_group;
             $message .= '/' . $objHelper->lookupGroup($item->home_group);
             Factory::getApplication()->enqueueMessage($message, 'info');
-//            var_dump($item);
-//            echo '<br>' . $sql . '<br>';
-//            var_dump($list);
-//            echo '<br>' . $sql . '<br>';
-//            die;
             return;
         }
 

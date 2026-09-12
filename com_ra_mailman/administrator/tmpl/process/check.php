@@ -13,7 +13,6 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\HTML\HTMLHelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
 
@@ -100,4 +99,3 @@ $objTable->generate_table();
 $toolsHelper = new ToolsHelper;
 $target = 'administrator/index.php?option=com_ra_mailman&view=dataload';
 echo $toolsHelper->backButton($target);
-

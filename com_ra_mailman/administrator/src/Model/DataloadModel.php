@@ -39,7 +39,6 @@ use \Joomla\CMS\Plugin\PluginHelper;
 use \Joomla\CMS\MVC\Model\AdminModel;
 use \Joomla\CMS\Object\CMSObject;
 use \Joomla\Utilities\ArrayHelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 /**

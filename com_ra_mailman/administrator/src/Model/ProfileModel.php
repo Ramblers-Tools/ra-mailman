@@ -29,7 +29,7 @@ use \Joomla\CMS\MVC\Model\AdminModel;
 use \Joomla\CMS\Helper\TagsHelper;
 use \Joomla\CMS\Filter\OutputFilter;
 // use \Joomla\CMS\User\User
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
+use Ramblers\Component\Ra_tools\Site\Helpers\PersonHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 /**
@@ -235,7 +235,7 @@ class ProfileModel extends AdminModel {
         // A corresponding Profile record may or may not exist
         $app = Factory::getApplication();
         $user = $this->getCurrentUser();
-        $objUserHelper = new UserHelper;
+        $personHelper = new PersonHelper;
 
         // change group code to upper case
         $data['home_group'] = strtoupper($data['home_group']);
@@ -256,18 +256,30 @@ class ProfileModel extends AdminModel {
             throw new \Exception(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
         $email = $data['email'];
+        $real_name = trim((string) ($data['real_name'] ?? ''));
         $requireReset = $data['requireReset'];
         $block = $data['block'];
-        $sql = 'UPDATE #__users SET requireReset=' . $requireReset;
-        $sql .= ', block=' . $block;
-        $sql .= ' WHERE id=';
         $toolsHelper = new ToolsHelper;
         if (empty($id)) {
             // check if email or real name already being used
-            $message = $objUserHelper->userExists($email, $real_name);
-            if ($message !== '') {
-                Factory::getApplication()->enqueueMessage($message, 'Error');
+            $conflicts = $personHelper->findUserIdentityConflicts($email, $real_name);
+            $existingEmail = $conflicts['email'];
+            $existingName = $conflicts['name'];
+
+            if ($existingEmail && strcasecmp((string) $existingEmail->name, $real_name) !== 0) {
+                Factory::getApplication()->enqueueMessage(
+                        $real_name . '/' . $email . ' is invalid: email is already in use with name '
+                        . $existingEmail->name,
+                        'Error'
+                );
                 return false;
+            }
+
+            if ($existingName && strcasecmp((string) $existingName->email, $email) !== 0) {
+                Factory::getApplication()->enqueueMessage(
+                        'The new profile has been created',
+                        'warning'
+                );
             }
         }
 
@@ -276,12 +288,27 @@ class ProfileModel extends AdminModel {
 //        var_dump($data);
         // If ID is present, we are just updating the Group code / preferred_name
         if (!empty($id)) {
+            $warning = null;
+            if ($real_name !== '') {
+                $conflicts = $personHelper->findUserIdentityConflicts($email, $real_name, (int) $id);
+                $existingName = $conflicts['name'];
+
+                if ($existingName) {
+                    $warning = 'Warning: the Real name "' . $real_name . '" is already used by '
+                            . $existingName->name . ' (' . $existingName->email . '). The profile was still updated.';
+                }
+            }
+
             $table = $this->getTable();
             $table->load($id);
 
             try {
                 if ($table->save($data) === true) {
-                    $toolsHelper->executeCommand($sql . $id);
+                    $personHelper->setRequireReset((int) $id, (int) $requireReset === 1);
+                    $personHelper->setBlocked((int) $id, (int) $block === 1);
+                    if ($warning !== null) {
+                        Factory::getApplication()->enqueueMessage($warning, 'warning');
+                    }
                     return $table->id;
                 } else {
                     Factory::getApplication()->enqueueMessage($table->getError(), 'error');
@@ -294,54 +321,24 @@ class ProfileModel extends AdminModel {
         }
         // We are creating a new profile record
         // First create a Joomla User record
-        $objUserHelper->group_code = $data['home_group'];
-        $objUserHelper->name = $data['real_name'];
-        $objUserHelper->email = $data['email'];
-        $response = $objUserHelper->createUserDirect();
-        if ($response == false) {
-            Factory::getApplication()->enqueueMessage($objUserHelper->error, 'error');
+        try {
+            $user_id = $personHelper->saveUser($real_name, $email, (int) $requireReset);
+            $personHelper->saveProfileData($user_id, [
+                'home_group' => $data['home_group'],
+                'preferred_name' => $data['preferred_name'],
+                'state' => !empty($data['state']) ? 1 : 0,
+            ]);
+        } catch (\Throwable $exception) {
+            Factory::getApplication()->enqueueMessage($exception->getMessage(), 'error');
             return false;
         }
-        // Get id of the user just created
-        $user_id = $objUserHelper->user_id;
-        $toolsHelper->executeCommand($sql . $user_id);
-        $message = 'Created user ' . $objUserHelper->name;
-        $message .= ' (' . $data['preferred_name'] . ')';
+
+        $personHelper->setRequireReset($user_id, (int) $requireReset === 1);
+        $personHelper->setBlocked($user_id, (int) $block === 1);
+        $message = 'Created user ' . $real_name;
+        $message .= ' (preferred name ' . $data['preferred_name'] . ')';
         Factory::getApplication()->enqueueMessage($message, 'info');
-        // Then create a profile record with the same id
-        $objUserHelper->preferred_name = $data['preferred_name'];
-        $response = $objUserHelper->createProfile();
-        if ($response == false) {
-            Factory::getApplication()->enqueueMessage($objUserHelper->error, 'error');
-            return false;
-        }
-//        Factory::getApplication()->enqueueMessage('Created profile record ' . $objUserHelper->group_code, 'info');
         return true;
     }
 
-    /**
-     * Prepare and sanitise the table prior to saving.
-     *
-     * @param   Table  $table  Table Object
-     *
-     * @return  void
-     *
-     * @since   4.0.0
-     */
-    protected function prepareTable($table) {
-        jimport('joomla.filter.output');
-        if ($table->groups_to_follow == '') {
-            $table->groups_to_follow = $table->home_group;
-        }
-//        $table->home_group = strtoupper($table->home_group);
-    }
-
-    //public function validate(\Joomla\CMS\Form\Form $form, array $data, string $group = null) {
-    /*
-      public function validate($form, array $data, string $group = null) {
-      parent::validate($form, $data, $group);
-      //     return false;
-      // return $data;
-      }
-     */
 }

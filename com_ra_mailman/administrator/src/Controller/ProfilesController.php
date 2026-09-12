@@ -20,7 +20,6 @@ use Joomla\CMS\MVC\Controller\AdminController;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Utilities\ArrayHelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 //use Ramblers\Component\Ra_mailman\Site\Helpers\LoadHelper;
 use Ramblers\Component\Ra_members\Site\Helper\LoadHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;

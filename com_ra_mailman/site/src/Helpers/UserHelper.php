@@ -41,6 +41,7 @@ use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Userhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\SubscriptionHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
+use Ramblers\Component\Ra_tools\Site\Helpers\PersonHelper;
 
 /**
  * Ra_mailman helper class
@@ -67,6 +68,7 @@ class UserHelper {
     protected $current_userid;
     protected $home_group;
     protected $toolshelper;
+    protected $personHelper;
     protected $objMailHelper;
     protected $error_count = 0;
     protected $error_report;
@@ -90,6 +92,7 @@ class UserHelper {
         $this->record_type = 1;
         $this->objMailHelper = new Mailhelper;
         $this->toolshelper = new ToolsHelper;
+        $this->personHelper = new PersonHelper;
         $this->abbreviate_name = ComponentHelper::getParams('com_ra_mailman')->get('abbreviate_name', 'Y');
         $this->current_userid = Factory::getApplication()->getSession()->get('user')->id;
     }
@@ -487,10 +490,8 @@ class UserHelper {
 
     protected function lookupUser() {
         $this->user_id = 0;
-        $sql = 'SELECT id, name FROM #__users WHERE email="' . $this->email . '"';
-//        echo $sql . '<br>';
-        $item = $this->toolshelper->getItem($sql);
-        $user_id = (int) $item->id;
+        $item = $this->personHelper->findUserByEmail($this->email);
+        $user_id = $item ? (int) $item->id : 0;
         if ($user_id > 0) {
             $this->name = $item->name;
             $this->user_id = $item->id;
@@ -852,20 +853,25 @@ class UserHelper {
                         $this->new_users[] = $this->name . ',' . $this->email;
                         $message .= 'User ' . $this->name . ' <b>not present</b> (' . $this->email . ')';
                         if ($this->processing == 1) {
-                            $response = $this->createUserDirect();
-                            if ($response) {
+                            try {
+                                $this->user_id = $this->personHelper->saveUser($this->name, $this->email, 0);
                                 $user_id = $this->user_id;  // As just created
+                                $this->createPreferredName();
+                                $this->personHelper->saveProfileData($user_id, [
+                                    'home_group' => strtoupper($this->group_code),
+                                    'preferred_name' => $this->preferred_name,
+                                    'state' => 1,
+                                ]);
                                 $message .= ', User created';
                                 if (JDEBUG) {
                                     $message .= ', id=' . $user_id;
                                 }
-                                $this->createPreferredName();
-                                $this->createProfile();
                                 $this->users_created++;
                                 $subscription_required = true;
-                            } else {
+                            } catch (\Throwable $exception) {
                                 $subscription_required = false;
-                                $message .= ', Error creating User ' . $this->name . '/' . $this->email;
+                                $message .= ', Error creating User ' . $this->name . '/' . $this->email
+                                        . ': ' . $exception->getMessage();
                             }
                         }
 //                        echo $message . '<br>';

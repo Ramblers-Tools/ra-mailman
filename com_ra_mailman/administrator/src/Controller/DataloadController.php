@@ -28,7 +28,6 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
-use \Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use \Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 /**

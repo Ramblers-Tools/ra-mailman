@@ -292,6 +292,12 @@ class ProfileformModel extends FormModel {
         $user = $this->getCurrentUser();
         $personHelper = new PersonHelper;
 
+        if ((int) $user->id === 0
+                && !ComponentHelper::getParams('com_ra_tools')->get('allow_self_registration', 1)) {
+            $app->enqueueMessage('Self-registration is not currently available.', 'error');
+            return false;
+        }
+
         if ($id) {
             // Check the user can edit this item
             $authorised = $user->authorise('core.edit', 'com_ra_mailman') || $authorised = $user->authorise('core.edit.own', 'com_ra_mailman');
@@ -319,11 +325,29 @@ class ProfileformModel extends FormModel {
             }
         }
 
-//      first create a user
+        //      first create a user
         try {
+            $identityConflicts = $personHelper->findUserIdentityConflicts($email, $real_name);
+            if ($identityConflicts['email']
+                    && strcasecmp((string) $identityConflicts['email']->name, $real_name) !== 0) {
+                throw new \RuntimeException(
+                        'The email address is already registered to '
+                        . $identityConflicts['email']->name . '. '
+                        . 'A different name cannot be registered against that account.'
+                );
+            }
+
             // Keep the password-reset requirement for self-registration. The
             // profile remains unpublished until an administrator approves it.
             $user_id = $personHelper->saveUser($real_name, $email, 1);
+
+            if (!$personHelper->profileExistsForUser($user_id)) {
+                throw new \RuntimeException(
+                        'The RA profile placeholder was not created for the new user. '
+                        . 'Ensure the RA Tools user-profile plugin is installed and enabled.'
+                );
+            }
+
             $personHelper->saveProfileData($user_id, [
                 'home_group' => $home_group,
                 'preferred_name' => $preferred_name,

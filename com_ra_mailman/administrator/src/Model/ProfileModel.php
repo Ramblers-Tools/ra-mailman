@@ -323,6 +323,14 @@ class ProfileModel extends AdminModel {
         // First create a Joomla User record
         try {
             $user_id = $personHelper->saveUser($real_name, $email, (int) $requireReset);
+
+            if (!$personHelper->profileExistsForUser($user_id)) {
+                throw new \RuntimeException(
+                        'The RA profile placeholder was not created for the new user. '
+                        . 'Ensure the RA Tools user-profile plugin is installed and enabled.'
+                );
+            }
+
             $personHelper->saveProfileData($user_id, [
                 'home_group' => $data['home_group'],
                 'preferred_name' => $data['preferred_name'],

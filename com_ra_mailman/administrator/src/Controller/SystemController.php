@@ -1,19 +1,14 @@
 <?php
 
 /**
- * @version     4.7.0
- * @package     com_ra_mailman
- *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
- * @license     GNU General Public License version 2 or later; see LICENSE.txt
  * 05/01/24 CB Created
  * 08/01/24 CB use SubscriptionHelper
  * 14/11/24 CB duffRecords
  * 26/05/25 CB checkSchema / ra_reports
- * 29/06/25 CB use UserHelper from Tools, not Mailman; purgeBlockedUsers
  * 11/08/25 CB allow forced send of emails
  * 03/11/25 CB delete bookings, return to reports menu after Purge All
  * 28/04/26 CB temp fix for updating groups table
+ * 21/09/26 CB Functions for deleting orphaned records
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -29,11 +24,12 @@ use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\MVC\Factory\MVCFactoryInterface;
 use Joomla\Input\Input;
+use Joomla\CMS\User\UserFactoryInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\SubscriptionHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\SchemaHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
-use Ramblers\Component\Ra_tools\Site\Helpers\UserHelper;
+use Ramblers\Component\Ra_tools\Site\Helpers\PersonHelper;
 
 class SystemController extends FormController {
 
@@ -295,75 +291,81 @@ class SystemController extends FormController {
         echo $toolsHelper->backButton($target);
     }
 
+    public function deleteSubscriptionAuditNoSub() {
+        if ($this->toolsHelper->isSuperuser()) {
+            $sql = 'FROM #__ra_mail_subscriptions_audit AS a ';
+            $sql .= 'LEFT JOIN #__ra_mail_subscriptions AS s on s.id = a.object_id ';
+            $sql .= 'WHERE s.id IS NULL ';
+            $count = $this->toolsHelper->getValue('SELECT COUNT(a.id) ' . $sql);
+
+            $this->toolsHelper->executeCommand('DELETE a.* ' . $sql);
+            $this->app->enqueueMessage($count . ' audit records deleted', 'message');
+        } else {
+            $this->app->enqueueMessage('Access only permitted for Superusers', 'error');
+        }
+        $this->setRedirect('index.php?option=com_ra_tools&task=reports.checkDatabase');
+    }
+
+    public function deleteSubscriptionsNoList() {
+        if ($this->toolsHelper->isSuperuser()) {
+            $sql = 'SELECT ms.id ';
+            $sql .= 'FROM #__ra_mail_subscriptions AS ms ';
+            $sql .= 'LEFT JOIN #__ra_mail_lists as m ON m.id = ms.list_id ';
+            $sql .= 'WHERE m.id IS NULL ';
+
+            $this->toolsHelper->getRows($sql);
+            $rows = $this->toolsHelper->getRows($sql);
+            $count_subs = count($rows);
+            $count_audit = 0;
+            foreach ($rows as $row) {
+                $sql = ' FROM  #__ra_mail_subscriptions_audit ';
+                $sql .= 'WHERE object_id=' . $row->id;
+                $count = $this->toolsHelper->getValue('SELECT COUNT(*)' . $sql);
+                $count_audit = $count_audit + $count;
+                $this->toolsHelper->executeCommand('DELETE ' . $sql);
+                $sql = 'DELETE FROM #__ra_mail_subscriptions WHERE id=' . $row->id;
+                $this->toolsHelper->executeCommand($sql);
+            }
+            $this->app->enqueueMessage($count_subs . ' Subscriptions and ' . $count_audit . ' audit records deleted', 'message');
+        } else {
+            $this->app->enqueueMessage('Access only permitted for Superusers', 'error');
+        }
+        $this->setRedirect('index.php?option=com_ra_tools&task=reports.checkDatabase');
+    }
+
+    public function deleteSubscriptionsNoProfile() {
+        if ($this->toolsHelper->isSuperuser()) {
+            $sql = 'SELECT ms.id ';
+            $sql .= 'FROM #__ra_mail_subscriptions AS ms ';
+            $sql .= 'LEFT JOIN #__ra_profiles as p ON p.id = ms.user_id ';
+            $sql .= 'WHERE p.id IS NULL ';
+
+            $this->toolsHelper->getRows($sql);
+            $rows = $this->toolsHelper->getRows($sql);
+            $count_subs = count($rows);
+            $count_audit = 0;
+            foreach ($rows as $row) {
+                $sql = ' FROM  #__ra_mail_subscriptions_audit ';
+                $sql .= 'WHERE object_id=' . $row->id;
+                $count = $this->toolsHelper->getValue('SELECT COUNT(*)' . $sql);
+                $count_audit = $count_audit + $count;
+                $this->toolsHelper->executeCommand('DELETE ' . $sql);
+                $sql = 'DELETE FROM #__ra_mail_subscriptions WHERE id=' . $row->id;
+                $this->toolsHelper->executeCommand($sql);
+            }
+            $this->app->enqueueMessage($count_subs . ' Subscriptions and ' . $count_audit . ' audit records deleted', 'message');
+        } else {
+            $this->app->enqueueMessage('Access only permitted for Superusers', 'error');
+        }
+        $this->setRedirect('index.php?option=com_ra_tools&task=reports.checkDatabase');
+    }
+
     public function duffRecords() {
         // one-off clean up to tidy the database
         ToolBarHelper::title('System maintenance');
         $toolsHelper = new ToolsHelper;
         if (!$toolsHelper->isSuperuser()) {
             return;
-        }
-
-        $sql = 'SELECT s.id, ';
-        $sql .= 'u.name AS `Subscriber`, ';
-        $sql .= 'DATE(s.created) AS `Created`, ';
-        $sql .= 's.modified, s.expiry_date, s.reminder_sent,';
-        if ($list_id == 0) {
-            $sql .= 'l.group_code AS `group`, l.name AS `list`, ';
-        }
-        $sql .= 'm.name AS `Method`, ma.name as Access ';
-        $sql .= 'FROM `#__ra_mail_subscriptions` AS s ';
-        $sql .= 'INNER JOIN `#__ra_mail_methods` AS `m` ON m.id = s.method_id ';
-        $sql .= 'LEFT JOIN `#__users` AS `u` ON u.id = s.user_id ';
-        $sql .= 'LEFT JOIN `#__ra_mail_lists` AS `l` ON l.id = s.list_id ';
-        $sql .= 'LEFT JOIN #__ra_mail_access AS ma ON ma.id = s.record_type ';
-        $sql .= 'LEFT JOIN #__ra_profiles as p ON p.id = s.user_id ';
-        $sql .= 'WHERE u.id IS NULL ';
-        $sql .= 'OR l.id IS NULL ';
-        $sql .= 'OR m.id IS NULL ';
-        $sql .= 'OR ma.id IS NULL ';
-        $sql .= 'OR p.id IS NULL ';
-        $rows = $toolsHelper->getRows($sql);
-        if ($toolsHelper->rows == 0) {
-            echo 'No unmatched subscriptions ' . '<br>';
-        } else {
-            echo 'Deleting unmatched subscriptions ' . '<br>';
-            $toolsHelper->showQuery($sql);
-            foreach ($rows as $row) {
-                $sql_audit = 'SELECT id FROM #__ra_mail_subscriptions_audit ';
-                $sql_audit .= 'WHERE object_id=' . $row->id;
-                $audit_rows = $toolsHelper->getRows($sql_audit);
-                foreach ($audit_rows as $audit_row) {
-                    $sql = 'DELETE FROM #__ra_mail_subscriptions_audit ';
-                    $sql .= 'WHERE object_id=' . $audit_row->id;
-                    echo $sql . '<br>';
-                    $toolsHelper->executeCommand($sql);
-                }
-
-                $sql = 'DELETE FROM  #__ra_mail_subscriptions ';
-                $sql .= 'WHERE id=' . $row->id;
-                echo $sql . '<br>';
-                $toolsHelper->executeCommand($sql);
-            }
-        }
-
-        // see if any unlinked audit records for subscriptions
-        $sql = 'SELECT a.id, a.object_id, a.created ';
-        $sql .= 'FROM #__ra_mail_subscriptions_audit AS a ';
-        $sql .= 'LEFT JOIN `#__ra_mail_subscriptions` AS `s` ON s.id = a.object_id ';
-        $sql .= 'WHERE s.id IS NULL ';
-        $sql .= 'ORDER BY a.id ';
-        echo $sql . '<br>';
-        $rows = $toolsHelper->getRows($sql);
-        if ($toolsHelper->rows == 0) {
-            echo 'No unmatched mapping records ' . '<br>';
-        } else {
-            $toolsHelper->showQuery($sql);
-            foreach ($rows as $row) {
-                $sql = 'DELETE FROM #__ra_mail_subscriptions_audit ';
-                $sql .= 'WHERE id=' . $row->id;
-                echo $sql . '<br>';
-                $toolsHelper->executeCommand($sql);
-            }
         }
 
         // see if any unlinked records for usergroup_map
@@ -425,10 +427,12 @@ class SystemController extends FormController {
         $target = 'administrator/index.php?option=com_ra_mailman&task=system.purgeUser&id=';
         $rows = $this->toolsHelper->getRows($sql);
         foreach ($rows as $row) {
-            $this->purgeUserRecord($row->id);
+            try {
+                $this->purgeUserRecord((int) $row->id);
+            } catch (\Throwable $exception) {
+                $this->app->enqueueMessage($exception->getMessage(), 'error');
+            }
         }
-        $userHelper = new UserHelper;
-        $userHelper->purgeProfiles();
         $back = 'administrator/index.php?option=com_ra_mailman&view=reports';
         echo $this->toolsHelper->backButton($back);
     }
@@ -440,33 +444,44 @@ class SystemController extends FormController {
             echo 'Invalid access<br>';
         } else {
             if ($id > 0) {
-                $this->purgeUserRecord($id);
+                try {
+                    $this->purgeUserRecord($id);
+                } catch (\Throwable $exception) {
+                    $this->app->enqueueMessage($exception->getMessage(), 'error');
+                }
             }
         }
-        $back = 'administrator/index.php?option=com_ra_mailman&task=reports.blockedUsers';
-        echo $this->toolsHelper->backButton($back);
+        // Return directly to the report so the remaining blocked-user list is
+        // immediately visible. Queued success/error messages are preserved by
+        // the Joomla administrator redirect.
+        $this->setRedirect('index.php?option=com_ra_mailman&task=reports.blockedUsers');
     }
 
     public function purgeUserRecord($id) {
-        echo 'Purging User ' . $id . '<br>';
-        $sql = 'DELETE FROM  #__user_usergroup_map ';
-        $sql .= 'WHERE user_id=' . $id;
-        echo $sql . '<br>';
-        $this->toolsHelper->executeCommand($sql);
-        $sql = 'DELETE FROM  #__ra_profiles ';
-        $sql .= 'WHERE id=' . $id;
-        echo $sql . '<br>';
-        $this->toolsHelper->executeCommand($sql);
-        $sql = 'DELETE FROM  #__users ';
-        $sql .= 'WHERE id=' . $id;
-        echo $sql . '<br>';
-        $this->toolsHelper->executeCommand($sql);
-        if (ToolsHelper::isInstalled('com_ra_events')) {
-            $sql = 'DELETE FROM  #__ra_bookings ';
-            $sql .= 'WHERE user_id=' . $id;
-            echo $sql . '<br>';
-            $this->toolsHelper->executeCommand($sql);
+        if ((int) $id < 1) {
+            throw new \InvalidArgumentException('A valid Joomla user ID is required.');
         }
+
+        $userFactory = Factory::getContainer()->get(UserFactoryInterface::class);
+        $user = $userFactory->loadUserById((int) $id);
+
+        if ((int) $user->id < 1) {
+            throw new \RuntimeException('Joomla user ' . (int) $id . ' was not found.');
+        }
+        if (!(int) $user->block) {
+            throw new \RuntimeException('Only blocked users may be removed by the MailMan purge task.');
+        }
+
+        if (!$user->delete()) {
+            throw new \RuntimeException(
+                            'Joomla was unable to delete user ' . (int) $id . ': ' . $user->getError()
+            );
+        }
+
+        $this->app->enqueueMessage(
+                'Deleted blocked Joomla user ' . (int) $id . ' through the Joomla User API.',
+                'message'
+        );
     }
 
     public function sendEmail() {
@@ -494,63 +509,19 @@ class SystemController extends FormController {
     function test() {
         $toolsHelper = new ToolsHelper;
         $mailHelper = new MailHelper;
-        $helper = New SchemaHelper;
-        $helper->checkColumn('ra_logfile', 'sub_system', 'U', 'VARCHAR(10) NOT NULL; ');
-        $target = 'administrator/index.php?option=com_ra_tools&view=dashboard';
+        $personHelper = new PersonHelper;
+//        $personHelper->createMissingPlaceholderProfiles();
+        $userId = 2261;
+        $name = 'mac@bigley.me.uk';
+        $response = $personHelper->ensurePlaceholderProfile($userId, $name);
+        echo 'Response: ' . $response . '<br>';
+        $target = 'index.php?option=com_ra_mailman&view=reports';
         echo $toolsHelper->backButton($target);
-//        return;
+        return;
 
         $date = Factory::getDate();
         echo $date . '<br>';
 
-        $sql = 'SELECT id, group_code, name, emails_outstanding ';
-        $sql .= 'FROM #__ra_mail_lists ';
-        $sql .= 'WHERE emails_outstanding>0 ORDER BY group_code, name';
-        $rows = $toolsHelper->getRows($sql);
-        $toolsHelper->showQuery($sql);
-        $id = 0;
-        foreach ($rows as $row) {
-            if ($id == 0) {
-                $id = $row->id;
-                $name = $row->group_code . '/' . $row->name;
-            }
-            $message .= 'Group ' . $row->group_code . ', List ' . $row->name;
-            $message .= ',' . $row->emails_outstanding . ' emails to be sent<br>';
-        }
-        if ($id > 0) {
-            $message .= 'Sending emails for ' . $name . '<br>';
-            echo $message;
-        }
-///////////////////////////////////////////////////////////////////////////////////////////////
-        $sql = 'SELECT l.id, COUNT(u.id)  ';
-        $sql .= 'FROM #__ra_mail_shots AS m ';
-        $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = m.mail_list_id ';
-        $sql .= 'INNER JOIN #__ra_mail_subscriptions AS s ON s.list_id = l.id ';
-        $sql .= 'INNER JOIN #__users AS u ON u.id = s.user_id ';
-        $sql .= 'LEFT JOIN #__ra_mail_recipients AS mr ON mr.mailshot_id =m.id ';
-        $sql .= 'AND u.id = mr.user_id ';
-        $sql .= 'WHERE mr.id IS NULL ';
-        $sql .= 'AND l.id=' . $id;
-        $sql .= ' AND s.state=1';
-        $sql .= ' AND u.block=0 AND u.requireReset=0';
-        //      echo $sql;
-
-        $item = $this->toolsHelper->getItem($sql);
-        echo'List is ' . $item->id . '<br>';
-
-        $last_mailshot = $mailHelper->lastMailshot($item->id); //
-        //      var_dump($last_mailshot);
-        echo 'mailshot is ' . $last_mailshot->id . '<br>';
-        //       return;
-        $mail_shot_id = $last_mailshot->id;
-        $subscribers = $mailHelper->getSubscribers($mail_shot_id);
-        $count_subscribers = count($subscribers);
-        $count = 1;
-        $outstanding = $count_subscribers;
-        $current_email = '';
-        foreach ($subscribers as $subscriber) {
-            echo $subscriber->email . '<br>';
-        }
         return;
 // Only get users who have not yet received their message
 //        $subscribers = $this->getSubscribers($mailshot_id, 'Y');
@@ -558,9 +529,6 @@ class SystemController extends FormController {
 //        $message .= ', ' . $count_subscribers . ' users outstanding';
 ////////////////////////////////////////////////////////////////////////////////
 //    $objSubscription->cancel();
-//        $objSubscription = new SubscriptionHelper;
-//        $objUserHelper = new UserHelper;
-//        $objUserHelper->blockUser(934);   // Webbie
     }
 
     private function testRenewals() {

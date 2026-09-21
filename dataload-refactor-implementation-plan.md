@@ -37,6 +37,13 @@ The existing two-pass behaviour must remain:
 - The existing MailMan `notify_new_user` configuration option determines
   whether a newly registered user receives a notification email.
 - Insight lapsed-member block/purge behaviour remains unchanged.
+- User/profile creation will be centralised through a dedicated RA Tools user
+  plugin and `PersonHelper`; DataLoad will not directly insert profile rows.
+- A newly created user receives an unpublished `ZZ99` placeholder profile,
+  which DataLoad then completes with the real group and profile data.
+- No reserved Joomla user ID will be used for placeholders. Placeholder rows
+  retain the actual user's ID, use `created_by = 0` for system creation, and
+  are identified by `state = 0` plus `home_group = ZZ99`.
 
 ## Current findings
 
@@ -96,9 +103,9 @@ original heading for diagnostics.
 
 | Data type | Required canonical fields | Initial aliases to support |
 | --- | --- | --- |
-| 3 — Insight Hub | `forename`, `surname`, `email`, `group_code` | `Forenames`/`First Name`; `Last Name`/`Surname`; `Email Address`/`Email`; `Group Code`/`Group` |
+| 3 — Insight Hub | `forename`, `surname`, `email`, `group_code` | `Forenames`/`First Name`; `Last Name`/`Surname`; `Email Address`/`Email`; `Group Code`/`Group`/`Group/group` |
 | 4 — MailChimp | `email`, `forename`, `surname` | `Email address`, `First Name`, `Last Name` (case-insensitive matching) |
-| 5 — simple CSV | `group_code`, `name`, `email` | `Group Code`/`Group`; `Name`/`Real Name`/`Full Name`; `Email Address`/`Email` |
+| 5 — simple CSV | `group_code`, `name`, `email` | `Group Code`/`Group`/`Group/group`; `Name`/`Real Name`/`Full Name`; `Email Address`/`Email` |
 
 Insight rows may contain additional columns, which are ignored after the four
 required fields are found. MailChimp must no longer rely on the current
@@ -159,6 +166,90 @@ explicit no-notification import mode, and a documented result/exception
 contract for created/updated/unchanged/conflict outcomes. Do not move
 subscriptions, import reports or lapsed-member rules into `PersonHelper`.
 
+The revised user/profile lifecycle must also add an idempotent
+`ensurePlaceholderProfile(userId, name)` operation. It creates an unpublished
+profile with reserved `home_group = ZZ99` only when no profile exists. Normal
+profile saves must then replace `ZZ99` with a real group and publish only when
+the profile is authorised. The method must be safe when invoked repeatedly by
+the user-save plugin and by DataLoad retries.
+
+## Centralised user/profile lifecycle
+
+Add a dedicated `plg_user_ra_profile` plugin to the RA Tools package. On
+Joomla's successful `onUserAfterSave` event for a newly created user, it must
+call `PersonHelper::ensurePlaceholderProfile()` and log any failure. Since the
+event is post-save and cannot reliably roll back the Joomla user, failures
+must be recoverable through reconciliation rather than being silently ignored.
+
+The plugin installer must run an idempotent one-off backfill for existing users:
+find users with no profile linked by `ra_profiles.id`, create the unpublished
+`ZZ99` placeholder, and report failures. Installation ordering must ensure the
+RA profiles table exists before the backfill runs.
+
+All profile-consuming code must treat `ZZ99`/unpublished profiles as
+unassigned. Such profiles must not qualify users for mailing lists, events,
+member-data access or other group-scoped operations. Publishing or completing
+a profile must require a real group code. This includes reviewing the existing
+user-deletion plugin, which should remove related records using the actual
+profile linkage and valid SQL.
+
+MailMan front-end `profileform` and administrator `profile` flows must be
+refactored to follow this sequence:
+
+1. Check the RA Tools self-registration setting where applicable.
+2. Create or locate the Joomla user through `PersonHelper`/Joomla APIs.
+3. Rely on the user plugin to create the placeholder profile for a new user.
+4. Update that placeholder through `PersonHelper` with the submitted group,
+   preferred name and other permitted fields.
+5. Leave it unpublished until the required administrator authorisation.
+
+Neither flow should contain a second, competing “create profile” path.
+
+RA Members needs a separate administrator-only operation for the exceptional
+case where two profile rows intentionally share one Joomla user/email. It must
+create an additional profile with an audit trail and explicit member identity;
+it must not weaken the normal identity-conflict rules. MailMan DataLoad must
+reject an email match with a different name, using the Members loader's shared
+profile safeguards, rather than invoking this exception.
+
+The RA Tools prototype `profile` view should be completed separately after the
+lifecycle refactor. It should allow an authenticated user to update only the
+permitted preferred-name fields and, where enabled, view their MailMan
+subscriptions, bookings and related information.
+
+## Existing administrator maintenance tasks
+
+The task names in the current code differ slightly from the names sometimes
+used operationally: `checkDatabase` and `duffProfiles` are currently methods of
+`ReportsController` and are invoked as `reports.checkDatabase` and
+`reports.duffProfiles`, not `profile.*`.
+
+The profile plugin changes the purpose of several tasks. They should be
+reviewed as follows:
+
+| Current task | Current behaviour | Recommended disposition |
+| --- | --- | --- |
+| `system.duffRecords` | Finds and deletes orphaned subscriptions, subscription-audit rows and user-group mappings. It is destructive, emits SQL, and contains legacy assumptions. | Repurpose as a super-user-only, read-only integrity report with separately confirmed repair actions. Use a shared reconciliation service and preserve audit rows until deletion is explicitly approved. |
+| `system.purgeAllUsers` | Deletes every blocked Joomla user directly, then calls legacy profile cleanup. | Retain as the explicitly confirmed **bulk purge of blocked users omitted from the latest feed**. It must enumerate the candidates, require Super User confirmation, and delete each user through Joomla's user deletion API so deletion plugins run. It is a feed-maintenance operation, not a general-purpose deletion path. |
+| `system.purgeUser` | Wrapper that accepts an ID and calls `purgeUserRecord`. | Retain only as the internal per-user operation used by the confirmed blocked-user bulk purge, loading the Joomla user through Joomla's user API and calling its delete operation. General administrator deletions are handled through the Joomla User UI. |
+| `system.purgeUserRecord` | Directly deletes groups, profile, user and optionally bookings; omits or inconsistently handles contacts, recipients, subscriptions and audit data. | Retire the direct-SQL implementation. The blocked-user bulk purge may call a central helper that invokes Joomla's user deletion API; all other deletions are initiated from Joomla's User UI. |
+| `reports.checkDatabase` | Checks orphan subscriptions/users/profiles, users without profiles, profiles with `id=0`, missing preferred names and duplicate names; some branches delete orphan subscriptions. | Repurpose as a read-only reconciliation dashboard. Include users without profiles, profiles without users, placeholder `ZZ99` profiles, duplicate/shared profiles and orphan component records. Offer separate, confirmed repairs. |
+| `reports.duffProfiles` | Lists profiles without users and offers a bulk purge; also reports profiles with `id=0`. | Keep as an orphan-profile report, but remove implicit bulk deletion. Provide a reviewed purge action that removes related audit/dependent records safely. |
+
+The user/profile plugin and its installation backfill should make “user
+without profile” an exceptional, repairable condition rather than a normal
+maintenance task. The reconciliation dashboard remains valuable for detecting
+plugin failures, manually deleted records, legacy data and shared-email
+profiles. It must distinguish an intentional additional Members profile from
+an orphan or duplicate.
+
+The deletion plugin/event path should define the deletion scope for profiles,
+contacts, MailMan subscriptions and subscription audits, recipients,
+bookings/guests and related Joomla records. `system.purgeUser` should load the
+target user through Joomla's user API and call the delete operation; the
+plugin then performs the component-aware cleanup and logs success/failure.
+There must be no direct-SQL fallback that bypasses Joomla deletion events.
+
 ## Reports and UI compatibility
 
 Retain the current report lifecycle: pass one inserts a `state=0` report with
@@ -189,17 +280,39 @@ CSV imports.
    behaviour and representative malformed files.
 2. Implement header normalisation, aliases, required-column and ambiguity
    checks, with mapping tests for all three types.
-3. Build `LoadHelper` and move two-pass orchestration and result counters out
-   of `UserHelper` without changing persistence yet.
-4. Replace direct persistence with `PersonHelper`; add only the shared methods
-   required after identity/notification semantics are agreed.
-5. Preserve subscriptions, report updates and Insight lapsed processing; fix
-   cancelled-subscription handling if confirmed by the decision above.
-6. Update the Process view/template and remove its `UserHelper` dependency.
-7. Migrate all remaining callers and retire `UserHelper`; no compatibility
+3. Implement the RA Tools placeholder-profile method and user plugin,
+   including idempotent installation backfill and reconciliation reporting.
+4. Refactor MailMan front-end/admin profile flows and enforce the RA Tools
+   self-registration option.
+5. Add the RA Members administrator-only shared-email profile operation and
+   retain MailMan conflict rejection.
+6. Preserve the confirmed bulk purge of blocked users omitted from the latest
+   feed, but route each deletion through Joomla's User API and the central
+   plugin-aware cleanup path. All other individual deletions are performed from
+   the Joomla User UI; remove the direct-SQL general-purpose purge path.
+7. Repurpose `reports.checkDatabase`/`reports.duffProfiles` and
+   `system.duffRecords` as read-only reconciliation plus separately confirmed
+   repair actions.
+8. Update all operational queries to exclude unpublished/`ZZ99` profiles;
+   review/fix user-deletion cleanup and reconciliation.
+9. Complete the RA Tools profile prototype with optional subscriptions and
+   bookings views.
+10. Test and sign off phases 3–9 together. Do not begin DataLoad persistence
+    migration until the user/profile lifecycle, profile flows, shared-email
+    exception, purge paths and reconciliation behaviour are working.
+11. Build `LoadHelper` and move two-pass orchestration and result counters out
+    of `UserHelper` without changing persistence yet.
+12. Replace DataLoad's direct persistence with `PersonHelper`; after user
+    creation, complete the plugin-created placeholder rather than inserting a
+    competing profile row.
+13. Preserve subscriptions, report updates and Insight lapsed processing; add
+    the non-forcing subscription path and administrator-only `force` path.
+14. Update the Process view/template and remove its `UserHelper` dependency.
+15. Migrate all remaining callers and retire `UserHelper`; no compatibility
    wrapper is required after the migration.
-8. Run syntax, mapping, validation, two-pass, report, subscription and
-   database-backed regression tests.
+16. Run final syntax, mapping, validation, lifecycle, backfill, reconciliation,
+   deletion, two-pass, report,
+   subscription and database-backed regression tests.
 
 ## Acceptance criteria
 
@@ -209,8 +322,16 @@ CSV imports.
 - Pass one performs no user/profile/subscription writes.
 - Pass two uses `PersonHelper` for all user/profile persistence and retains the
   same report row and counters.
+- Every Joomla user has an idempotently maintained profile; newly created
+  users begin as unpublished `ZZ99` placeholders and are completed explicitly.
 - Existing users are not duplicated and identity conflicts follow the agreed
   policy.
+- Unassigned/unpublished profiles are excluded from operational group-scoped
+  results.
+- Reconciliation tasks are read-only by default, and purge actions are
+  separately authorised, complete and auditable.
+- The Members shared-email exception is administrator-only and does not weaken
+  MailMan's conflict rejection.
 - Subscription opt-outs and Insight lapsed handling are covered independently.
 - No DataLoad business logic remains in the Process template.
 - Existing import-report pages and Continue/Cancel behaviour still work.
@@ -219,3 +340,62 @@ CSV imports.
 
 No remaining design decisions are recorded at this stage. The implementation
 should use the confirmed configuration and lapsed-member policies above.
+
+## Implementation status
+
+- Phase 3 is implemented: RA Tools provides the placeholder-profile method and
+  the published `plg_user_ra_profiles` user plugin creates placeholders for
+  newly-created users and backfills existing users.
+- Phase 4 is implemented pending system testing: the RA Tools configuration
+  now controls front-end self-registration; MailMan front-end and administrator
+  profile creation require the plugin-created placeholder and no longer use a
+  competing direct profile-creation path for new users.
+- Phase 5 is implemented pending system testing: MailMan rejects an email/name
+  identity conflict, while RA Members provides an explicit Super User-only
+  action for attaching an otherwise unlinked profile to an existing Joomla
+  user for the intentional shared-email exception.
+- Phase 7 has started: RA Tools now exposes a read-only user/profile
+  reconciliation report, with optional MailMan and Events findings labelled
+  for repair by their owning components. No component-owned records are
+  modified by this report. The report now includes drill-down views and
+  owner-routed actions; RA Tools' placeholder backfill is the only core repair
+  action implemented so far.
+- Phase 8 has started: live Members, MailMan subscription/recipient, and
+  Events booking queries now exclude unpublished `ZZ99` placeholder profiles.
+  Address-label output also excludes placeholders, while reconciliation and
+  administrative profile views remain able to show them. The RA Tools cleanup
+  plugin has been corrected to be a Joomla user plugin, use the Joomla 5/6
+  delete event, remove profiles by their actual `id` linkage, and clean up
+  component-owned bookings, recipients, subscriptions and subscription audit
+  rows. Remaining operational joins should be reviewed before Phase 8 is
+  signed off.
+- Phase 9 is implemented: the RA Tools front-end profile view now loads only
+  the signed-in user's profile, offers a safe profile-update link, and shows
+  optional active MailMan subscriptions and active Events bookings when those
+  components are enabled. The former copied/incompatible profile model and
+  template were replaced with RA Tools namespace/data access and escaped
+  output.
+- Phase 12 is implemented in the current DataLoad persistence path: MailMan
+  now explicitly ensures the Joomla user plugin's placeholder exists before
+  completing a newly-created user's profile. `PersonHelper::saveProfileData`
+  also repairs a missing row through the idempotent placeholder method before
+  binding import data, so persistence cannot create a competing profile row.
+- Phase 13 is implemented: subscription creation now defaults to the
+  non-forcing path, so DataLoad and ordinary subscribe requests cannot
+  silently reinstate cancelled or purged subscriptions. The explicit
+  administrator `resubscribe` action passes `force=true`; Insight lapsed
+  processing and import-report updates remain unchanged.
+- Phase 14 is implemented: the administrator Process template now depends
+  only on `LoadHelper`. It retains the existing validation and processing
+  workflow, while `LoadHelper` provides the temporary orchestration adapter
+  until the remaining UserHelper business logic is migrated in Phase 15.
+- Phase 15 is in progress: the Process template no longer references
+  `UserHelper`, and the legacy profile-controller import was removed. The
+  temporary `LoadHelper::processFile()` adapter still delegates pass-two
+  subscription/lapsed processing to `UserHelper`; administrator maintenance
+  tasks also still use the RA Tools `UserHelper`, so the helper cannot yet be
+  retired safely.
+- Phase 16 checks completed so far: all modified PHP files pass syntax
+  validation and `git diff --check` reports no whitespace errors. Full
+  database-backed import, lifecycle, subscription and lapsed-member tests
+  remain required before sign-off.

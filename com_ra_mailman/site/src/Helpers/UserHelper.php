@@ -857,6 +857,10 @@ class UserHelper {
                                 $this->user_id = $this->personHelper->saveUser($this->name, $this->email, 0);
                                 $user_id = $this->user_id;  // As just created
                                 $this->createPreferredName();
+                                // Complete the placeholder created by the
+                                // Joomla user plugin; never insert a second
+                                // profile row for the new user.
+                                $this->personHelper->ensurePlaceholderProfile($user_id, $this->name);
                                 $this->personHelper->saveProfileData($user_id, [
                                     'home_group' => strtoupper($this->group_code),
                                     'preferred_name' => $this->preferred_name,

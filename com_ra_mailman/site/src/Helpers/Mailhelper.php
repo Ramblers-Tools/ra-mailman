@@ -1087,7 +1087,7 @@ class Mailhelper {
         $sql .= 'WHERE id=' . $subscription_id;
         $item = $this->toolsHelper->getItem($sql);
         if ($item->state == 0) {
-            $this->subscribe($item->list_id, $item->user_id, $item->record_type, 2);
+            $this->subscribe($item->list_id, $item->user_id, $item->record_type, 2, true);
         } else {
             $this->unsubscribe($item->list_id, $item->user_id, 2);
         }
@@ -1768,7 +1768,7 @@ class Mailhelper {
         $objTable->generate_table();
     }
 
-    public function subscribe($list_id, $user_id, $record_type, $method_id, $force = true) {
+    public function subscribe($list_id, $user_id, $record_type, $method_id, $force = false) {
 // Subscribes the given user to the given list
 // if invoked from the front-end, $user_id will usually be the current user,
 // but from the back-end, or if invoked from view list_select, it could be any user
@@ -1776,11 +1776,9 @@ class Mailhelper {
 // $record_type (from back end) could be 1=Subscription or 2=author
 //
 // $force controls whether a previously cancelled (state=0) or purged (state=-2)
-// subscription can be silently reactivated. Deliberate admin/user-initiated
-// subscribe actions default to true (unchanged behaviour); passive bulk imports
-// (UserHelper::processRecords()) pass false, since a returning user who had
-// actively unsubscribed should not be silently re-subscribed just because they
-// reappear in an import feed.
+// subscription can be silently reactivated. Passive imports and ordinary
+// subscribe requests do not reinstate an opted-out subscription. The explicit
+// administrator resubscribe action passes true.
         if (JDEBUG) {
             $message = "Creating subscription for list=" . $list_id . ', user=' . $user_id;
             $message .= ", record_type=" . $record_type . ', method_id=' . $method_id;

@@ -9,6 +9,7 @@
  * 29/09/25 CB bookableEvents
  * 13/10/25 CB subscriptionsReport
  * 17/08/26 CB emailPreview (not dummyEmail)
+ * 21/09/26 CB delete duplicateRecipients; remove checkDatabase & Users awaiting psw reset - moved to Tools
  */
 defined('_JEXEC') or die;
 
@@ -34,17 +35,16 @@ echo $breadcrumbs;
 
 $reports = [
     'Recent Mailshots' => 'administrator/index.php?option=com_ra_mailman&task=reports.recentMailshots',
-    'Subscriptions summary' => 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary',
-    'Analyse membership enrolment' => 'administrator/index.php?option=com_ra_mailman&task=reports.membershipEnrolment',
-    'Subscriptions due' => 'administrator/index.php?option=com_ra_mailman&task=reports.showDue',
-    'Subscriptions created' => 'administrator/index.php?option=com_ra_mailman&task=reports.showCreated',
-    'Subscriptions by Status' => 'administrator/index.php?option=com_ra_mailman&task=reports.showSubscriptionsByStatus',
     'Mailshots by Month' => 'administrator/index.php?option=com_ra_mailman&task=reports.showMailshotsByMonth',
+    'Sample Email' => 'administrator/index.php?option=com_ra_mailman&task=reports.emailPreview',
+    'Subscriptions summary' => 'administrator/index.php?option=com_ra_mailman&task=reports.subscriptionsSummary',
+    'Subscriptions by Status' => 'administrator/index.php?option=com_ra_mailman&task=reports.showSubscriptionsByStatus',
+    'Subscriptions created' => 'administrator/index.php?option=com_ra_mailman&task=reports.showCreated',
+    'Renewals due' => 'administrator/index.php?option=com_ra_mailman&task=reports.showDue',
+    'Analyse membership enrolment' => 'administrator/index.php?option=com_ra_mailman&task=reports.membershipEnrolment',
     'Users awaiting password reset' => 'administrator/index.php?option=com_ra_mailman&task=reports.resetUsers',
     'Blocked users' => 'administrator/index.php?option=com_ra_mailman&task=reports.blockedUsers',
     'Sample Email' => 'administrator/index.php?option=com_ra_mailman&task=reports.emailPreview',
-    'Check database for invalid records' => 'administrator/index.php?option=com_ra_mailman&task=reports.checkDatabase',
-    'Duplicate Recipients' => 'administrator/index.php?option=com_ra_mailman&task=reports.duplicateRecipients',
 ];
 
 if (ToolsHelper::isInstalled('com_ra_events')) {

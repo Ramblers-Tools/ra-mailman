@@ -191,24 +191,27 @@ class DataloadModel extends AdminModel {
 
         $files = $app->input->files->get('jform', array(), 'raw');
 
-        $file_array = $files['csv_file'];
-        if (is_null($file_array)) {
-            // We have already validated and uploaded the file
-            echo '<br> file_array is null<br>';
-        } else {
-            // This is the first time this function has been invoked
-            //           var_dump($file_array);
-            //           die;
+        $file_array = $files['csv_file'] ?? array();
+        $csv_file = (string) ($data['file'] ?? '');
+        $tmp_name = (string) ($data['tmp_name'] ?? '');
+        $delete = false;
+
+        if (is_array($file_array) && !empty($file_array['name'])
+                && (int) ($file_array['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
             $csv_file = $file_array['name'];
             $tmp_name = $file_array['tmp_name'];
             $delete = true;
         }
-//        $app->enqueueMessage('DataloadModel/Save: file is  ' . $csv_file, 'info');
+
+        if ($csv_file === '') {
+            $app->enqueueMessage('No CSV file was selected.', 'error');
+            return false;
+        }
+
         jimport('joomla.filesystem.file');
         $filename = File::stripExt($csv_file);
         $extension = File::getExt($csv_file);
         $filename = $filename . '.' . $extension;
-        $fileTemp = $tmp_name;
         $upload_file = JPATH_ROOT . '/images/com_ra_mailman/' . $filename;
         if ($delete == true) {
             if (File::exists($upload_file)) {
@@ -218,8 +221,8 @@ class DataloadModel extends AdminModel {
                     unlink($upload_file);
                 }
             }
-            if (!File::upload($fileTemp, $upload_file)) {
-                $app->enqueueMessage('Model: Error moving ' . $fileTemp . ' to ' . $filename, 'warning');
+            if (!File::upload($tmp_name, $upload_file)) {
+                $app->enqueueMessage('Model: Error moving ' . $tmp_name . ' to ' . $filename, 'warning');
                 return false;
             } else {
 
@@ -239,16 +242,25 @@ class DataloadModel extends AdminModel {
         $array = $app->input->get('jform', array(), 'ARRAY');
 
         $files = $app->input->files->get('jform', array(), 'raw');
-        $file_array = $files['csv_file'];
-        $csv_file = $file_array['name'];
+        $file_array = $files['csv_file'] ?? array();
+        $csv_file = (string) ($file_array['name'] ?? '');
+        $hasNewUpload = is_array($file_array)
+                && $csv_file !== ''
+                && (int) ($file_array['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
 
-        if ($array['file'] != '') {
-            // File has already been validated
+        if (!$hasNewUpload && !empty($array['file'])) {
+            // No replacement was selected; retain the already uploaded file.
             $this->csv_file = $array['file'];
-            $this->tmp_file = $array['tmp_file'];
+            $this->tmp_name = $array['tmp_name'] ?? '';
+            $data['file'] = $array['file'];
+            $data['tmp_name'] = $array['tmp_name'] ?? '';
             return $data;
+        } elseif (!$hasNewUpload) {
+            $app->enqueueMessage('Please select a file', 'info');
+            return false;
         } else {
-            // Replace any special characters in the filename
+            // Permit spaces and ordinary filename punctuation, but reject
+            // paths or characters that could be unsafe in the upload name.
             jimport('joomla.filesystem.file');
             $filename = File::stripExt($csv_file);
             if ($filename == '') {
@@ -257,11 +269,10 @@ class DataloadModel extends AdminModel {
                 return false;
             }
             $extension = File::getExt($csv_file);
-            $filename = preg_replace("/[^A-Za-z0-9]/i", "-", $filename);
-            $filename = $filename . '.' . $extension;
-            $fileTemp = $tmp_name;
-            if ($filename !== $csv_file) {
-                $message = 'File ' . $file_array['name'] . ' contains invalid characters, please rename to ' . $filename . ',';
+            $safeName = $filename . '.' . $extension;
+            if (basename($csv_file) !== $csv_file
+                    || !preg_match('/^[A-Za-z0-9 _.-]+\.[A-Za-z0-9]+$/', $safeName)) {
+                $message = 'File ' . $file_array['name'] . ' contains invalid characters. Use a simple filename with spaces, hyphens or underscores.';
                 $app->enqueueMessage($message, 'info');
                 return false;
             }

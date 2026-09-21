@@ -32,7 +32,6 @@ use Joomla\CMS\Uri\Uri;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 
 /**
  * Profile class.
@@ -108,16 +107,6 @@ class ProfileController extends FormController {
 
     public function submit($key = NULL, $urlVar = NULL) {
         die('controller/submit');
-    }
-
-    public function test() {
-        if (!$this->toolsHelper->isSuperuser()) {
-            echo 'Logon first<br>';
-            return;
-        }
-        $userHelper = new UserHelper;
-        echo __FILE__ . '<br>';
-        $userHelper->test();
     }
 
 }

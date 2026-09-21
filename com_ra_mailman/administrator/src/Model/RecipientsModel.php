@@ -136,6 +136,7 @@ class RecipientsModel extends ListModel {
 
         $query->from('`#__ra_mail_recipients` AS a');
         $query->innerJoin($this->_db->qn('#__ra_profiles') . ' AS `p` ON p.id = a.user_id');
+        $query->where("p.state = 1 AND p.home_group <> 'ZZ99'");
         $query->innerJoin($this->_db->qn('#__ra_mail_shots') . ' AS `m` ON m.id = a.mailshot_id');
         $query->leftJoin($this->_db->qn('#__ra_mail_lists') . ' AS `mail_list` ON mail_list.id = m.mail_list_id');
 

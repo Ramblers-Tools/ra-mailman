@@ -23,7 +23,6 @@ use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Uri\Uri;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\PersonHelper;
 
@@ -59,12 +58,8 @@ class ProfileController extends FormController {
         $item = $this->toolsHelper->getItem($sql);
         if ($item) {
 
-            $objUserHelper = new UserHelper;
-            $objUserHelper->preferred_name = $item->name;
-            $objUserHelper->name = $item->name;
-            $objUserHelper->email = $item->email;
-            $objUserHelper->user_id = $id;
-            $objUserHelper->createProfile();
+            $personHelper = new PersonHelper;
+            $personHelper->ensurePlaceholderProfile((int) $id, (string) $item->name);
             $this->setRedirect(Route::_('/administrator/index.php?option=com_ra_mailman&view=profile&layout=edit&id=' . $id, false));
         } else {
             throw new Exception('Can\'t find User record', 404);
@@ -175,9 +170,6 @@ class ProfileController extends FormController {
         if (!$this->toolsHelper->isSuperuser()) {
             return;
         }
-        $objUserHelper = new UserHelper;
-
-        $objUserHelper->test();
         $profileModel = parent::getModel('Profile', 'Administrator', array('ignore_request' => true));
     }
 

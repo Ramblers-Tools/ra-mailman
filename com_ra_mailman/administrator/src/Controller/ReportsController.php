@@ -1,10 +1,6 @@
 <?php
 
 /**
- * @version    4.7.9
- * @package    com_ra_mailman
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
- * @license     GNU General Public License version 2 or later; see LICENSE.txt
  * 21/05/25 CB dummyEmail, checkDatabase reports
  * 14/06/25 CB delete subscriptions without user records
  * 30/06/25 CB Purge blocked records
@@ -20,6 +16,8 @@
  * 22/05/26 CB recentMailshots
  * 07/06/26 CB Delete subscriptions if no matching profile
  * 10/06/26 CB checkDatabase: show membershipNumber, delete debug messages
+ * 21/09/26 CB delete report duplicateRecipients
+ * 21/09/26 CB Functions for showing orphaned records
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -87,7 +85,7 @@ class ReportsController extends FormController {
         $sql = "SELECT id, name as 'User', email  ";
         $sql .= 'FROM `#__users` ';
         $sql .= ' WHERE block=1';
-        $sql .= ' ORDER BY id';
+        $sql .= ' ORDER BY name';
         $target = 'administrator/index.php?option=com_ra_mailman&task=system.purgeUser&id=';
         $rows = $this->toolsHelper->getRows($sql);
         foreach ($rows as $row) {
@@ -296,28 +294,33 @@ class ReportsController extends FormController {
             $sql .= 'WHERE u.id IS NULL AND p.membershipNumber IS NULL ';
             $sql .= 'ORDER BY p.membershipNumber, p.home_group, p.preferred_name';
             $rows = $this->toolsHelper->getRows($sql);
-            $table = new ToolsTable();
-            $table->add_header("Group,Member No, Preferred Name,Created,Member id,Action");
+            if ($rows) {
+                echo '<h4>Profiles without a membershipNumber</h4>';
+                $table = new ToolsTable();
+                $table->add_header("Group,Member No, Preferred Name,Created,Member id,Action");
 
-            foreach ($rows as $row) {
-                $table->add_item($row->home_group);
-                $table->add_item($row->membershipNumber);
-                $table->add_item($row->preferred_name);
-                $table->add_item($row->created);
-                $table->add_item($row->member_id);
-// See if a matching user can be found
-                $sql_lookup = 'SELECT id from #__users WHERE name=' . $this->db->quote($row->preferred_name);
-                $user_id = $this->toolsHelper->getValue($sql_lookup);
-                if ($user_id) {
-                    $sql_update = 'UPDATE #__ra_profiles SET id=' . $user_id;
-                    $sql_update .= ' WHERE preferred_name=' . $this->db->quote($row->preferred_name);
-//                    $this->toolsHelper->executeCommand($sql_update);
-                    $table->add_item($sql_update . ' ' . $user_id);
+                foreach ($rows as $row) {
+                    $table->add_item($row->home_group);
+                    $table->add_item($row->membershipNumber);
+                    $table->add_item($row->preferred_name);
+                    $table->add_item($row->created);
+                    $table->add_item($row->member_id);
+                    // See if a matching user can be found
+                    $sql_lookup = 'SELECT id from #__users WHERE name=' . $this->db->quote($row->preferred_name);
+                    $user_id = $this->toolsHelper->getValue($sql_lookup);
+                    if ($user_id) {
+                        $sql_update = 'UPDATE #__ra_profiles SET id=' . $user_id;
+                        $sql_update .= ' WHERE preferred_name=' . $this->db->quote($row->preferred_name);
+                        //                    $this->toolsHelper->executeCommand($sql_update);
+                        $table->add_item($sql_update . ' ' . $user_id);
+                    }
+                    $table->generate_line();
                 }
-                $table->generate_line();
+                $table->generate_table();
+                echo $this->toolsHelper->rows . ' records found<br>';
+            } else {
+                echo 'All profiles have a membershipNumber<br>';
             }
-            $table->generate_table();
-            echo $this->toolsHelper->rows . ' records found<br>';
         }
 //  See if any Users without a Profile
         $sql = "SELECT count(*) FROM #__users AS u ";
@@ -582,34 +585,6 @@ class ReportsController extends FormController {
                 $objTable->add_item($row->preferred_name);
             }
             $objTable->generate_table();
-        }
-        echo $this->toolsHelper->backButton($this->back);
-    }
-
-    public function duplicateRecipients() {
-        ToolBarHelper::title('Duplicate Recipents');
-        echo $this->breadcrumbs;
-        $sql = 'SELECT MAX(ms.date_sent) as `date_sent`, ms.title, `user_id` ,COUNT(mr.id) AS `count` ';
-        $sql .= 'FROM `#__ra_mail_recipients` AS mr ';
-        $sql .= 'INNER JOIN `#__ra_mail_shots` AS ms on ms.id = mr.mailshot_id ';
-        $sql .= 'GROUP BY `user_id`, ms.title  ';
-        $sql .= 'HAVING COUNT(mr.id) > 1 ';
-//        $sql .= 'ORDER BY preferred_name';
-//        echo "$sql<br>";
-        $rows = $this->toolsHelper->getRows($sql);
-        if ($rows) {
-            $objTable = new ToolsTable();
-            $objTable->add_header("Date sent,Mailshot,User id, Count");
-            foreach ($rows as $row) {
-                $objTable->add_item($row->date_sent);
-                $objTable->add_item($row->title);
-                $objTable->add_item($row->user_id);
-                $objTable->add_item($row->count);
-                $objTable->generate_line();
-            }
-            $objTable->generate_table();
-        } else {
-            echo '<br>No duplicates found<br>';
         }
         echo $this->toolsHelper->backButton($this->back);
     }
@@ -1326,35 +1301,30 @@ class ReportsController extends FormController {
         $table = new ToolsTable();
         $toolsHelper = new ToolsHelper;
 
-        $sql = 'SELECT s.state, COUNT(s.id) ';
-        $sql .= 'FROM #__ra_mail_subscriptions AS s ';
-        $sql .= ' GROUP BY s.state ';
-        $sql .= ' ORDER BY s.state';
-        $toolsHelper->showSql($sql);
+        $table->add_header("Group, Name,Active,Inactive");
+        $sql = 'SELECT id, group_code, name ';
+        $sql .= 'FROM #__ra_mail_lists ';
+        $sql .= 'ORDER BY group_code, name';
+        $lists = $toolsHelper->getRows($sql);
+        foreach ($lists as $list) {
+            $table->add_item($list->group_code);
+            $table->add_item($list->name);
 
-//        $table->add_header("Name,0,1");
-//        $sql = 'SELECT id, name, state ';
-//        $sql .= 'FROM #__ra_mail_lists ';
-//        $sql .= 'ORDER BY name';
-//        $lists = $toolsHelper->getRows($sql);
-//        foreach ($lists as $list) {
-//            $table->add_item($list->name);
-//
-//            $sql = 'SELECT s.state, COUNT(s.id) ';
-//            $sql .= 'FROM #__ra_mail_subscriptions AS s ';
-//            $sql .= 'INNER JOIN #__ra_mail_lists AS l  ON l.id = s.list_id ';
-//
-//            $sql .= 'WHERE s.list_id=' . $list->id;
-//            $sql .= ' GROUP BY s.state ';
-//            $sql .= ' ORDER BY s.state';
-//            echo $sql . '<br>';
-//            $rows = $toolsHelper->getRows($sql);
-//            foreach ($rows as $row) {
-//                $table->add_item($row->state);
-//            }
-//            $table->add_line;
-//        }
-//        $table->generate_table();
+            $sql = 'SELECT s.state, COUNT(s.id) AS status_count ';
+            $sql .= 'FROM #__ra_mail_subscriptions AS s ';
+            $sql .= 'INNER JOIN #__ra_mail_lists AS l  ON l.id = s.list_id ';
+
+            $sql .= 'WHERE s.list_id=' . $list->id;
+            $sql .= ' GROUP BY s.state ';
+            $sql .= ' ORDER BY s.state DESC';
+            //           echo $sql . '<br>';
+            $rows = $toolsHelper->getRows($sql);
+            foreach ($rows as $row) {
+                $table->add_item($row->status_count);
+            }
+            $table->generate_line();
+        }
+        $table->generate_table();
         echo $this->toolsHelper->backButton($this->back);
     }
 
@@ -1439,6 +1409,89 @@ class ReportsController extends FormController {
         $table->generate_table();
         $back = "administrator/index.php?option=com_ra_mailman&task=reports.showDue";
 
+        echo $this->toolsHelper->backButton($back);
+    }
+
+    public function showSubscriptionsAuditNoSub() {
+        echo '<h4>Subscriptions Audit found, no matching Subscription ' . 00 . '</h4>';
+        if ($this->toolsHelper->isSuperuser()) {
+            $sql = 'SELECT a.*, p.preferred_name  ';
+            $sql .= 'FROM #__ra_mail_subscriptions_audit AS a ';
+            $sql .= 'LEFT JOIN #__ra_mail_subscriptions AS s on s.id = a.object_id ';
+            $sql .= 'LEFT JOIN #__ra_profiles AS p on p.id = a.created_by ';
+            $sql .= 'WHERE s.id IS NULL ';
+
+            $table = new ToolsTable();
+            $table->add_header("UID, Updated,By,Field,From value,New value");
+            $rows = $this->toolsHelper->getRows($sql);
+            foreach ($rows as $row) {
+                $table->add_item($row->id);
+                $table->add_item(HTMLHelper::_('date', $row->created, 'Y-m-d H:i'));
+                $table->add_item($row->preferred_name); // ;
+                $table->add_item($row->field_name);
+                $table->add_item($row->old_value);
+                $table->add_item($row->new_value);
+                $table->generate_line();
+            }
+            $table->generate_table();
+        }
+        $back = 'administrator/index.php?option=com_ra_tools&task=reports.checkDatabase';
+        echo $this->toolsHelper->backButton($back);
+    }
+
+    public function showSubscriptionsNoProfile() {
+        echo '<h4>Subscriptions found, no matching Profile</h4>';
+        if ($this->toolsHelper->isSuperuser()) {
+            $sql = 'SELECT ms.id, ms.list_id, ms.user_id, ms.record_type, ms.method_id, ms.created, ';
+            $sql .= "ml.group_code,ml.name,mm.name as 'Method'  ";
+            $sql .= 'FROM #__ra_mail_subscriptions AS ms ';
+            $sql .= 'LEFT JOIN #__ra_mail_methods AS mm on mm.id = ms.method_id ';
+            $sql .= 'LEFT JOIN #__ra_profiles as p ON p.id = ms.user_id ';
+            $sql .= 'LEFT JOIN #__ra_mail_lists as ml ON ml.id = ms.list_id ';
+            $sql .= 'WHERE p.id IS NULL ';
+
+            $table = new ToolsTable();
+            $table->add_header("Profile id,List,Created,Access,Method");
+            $rows = $this->toolsHelper->getRows($sql);
+            foreach ($rows as $row) {
+                $table->add_item($row->user_id);
+                $table->add_item($row->group_code . '/' . $row->name);
+                $table->add_item(HTMLHelper::_('date', $row->created, 'Y-m-d H:i'));
+                $table->add_item(($row->record_type == 1 ? 'Subscriber' : 'Author'));
+                $table->add_item($row->Method);
+                $table->generate_line();
+            }
+            $table->generate_table();
+        }
+        $back = 'administrator/index.php?option=com_ra_tools&task=reports.checkDatabase';
+        echo $this->toolsHelper->backButton($back);
+    }
+
+    public function showSubscriptionsNoList() {
+        echo '<h4>Subscriptions found, no matching List</h4>';
+        if ($this->toolsHelper->isSuperuser()) {
+            $sql = 'SELECT ms.id, ms.list_id, ms.user_id, ms.record_type, ms.method_id, ms.created, ';
+            $sql .= "ml.group_code,p.preferred_name,mm.name as 'Method'  ";
+            $sql .= 'FROM #__ra_mail_subscriptions AS ms ';
+            $sql .= 'LEFT JOIN #__ra_mail_methods AS mm on mm.id = ms.method_id ';
+            $sql .= 'LEFT JOIN #__ra_profiles as p ON p.id = ms.user_id ';
+            $sql .= 'LEFT JOIN #__ra_mail_lists as ml ON ml.id = ms.list_id ';
+            $sql .= 'WHERE ml.id IS NULL ';
+
+            $table = new ToolsTable();
+            $table->add_header("List id,Name,Created,Access,Method");
+            $rows = $this->toolsHelper->getRows($sql);
+            foreach ($rows as $row) {
+                $table->add_item($row->list_id);
+                $table->add_item($row->preferred_name);
+                $table->add_item(HTMLHelper::_('date', $row->created, 'Y-m-d H:i'));
+                $table->add_item(($row->record_type == 1 ? 'Subscriber' : 'Author'));
+                $table->add_item($row->Method);
+                $table->generate_line();
+            }
+            $table->generate_table();
+        }
+        $back = 'administrator/index.php?option=com_ra_tools&task=reports.checkDatabase';
         echo $this->toolsHelper->backButton($back);
     }
 

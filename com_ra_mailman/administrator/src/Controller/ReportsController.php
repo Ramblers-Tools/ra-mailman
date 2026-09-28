@@ -18,6 +18,7 @@
  * 10/06/26 CB checkDatabase: show membershipNumber, delete debug messages
  * 21/09/26 CB delete report duplicateRecipients
  * 21/09/26 CB Functions for showing orphaned records
+ * 25/09/26 CB showSubscriptionsNoList: show group code
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -519,7 +520,7 @@ class ReportsController extends FormController {
 
       In Display mode, this shows any Profiles records for which no matching User record is present, usually because it has been deleted manually
 
-      In Purge mode, it invokes a function in the UserHelper to actually delete them
+      In Purge mode, it invokes the RA Tools cleanup helper to actually delete them
 
      */
 
@@ -1471,7 +1472,7 @@ class ReportsController extends FormController {
         echo '<h4>Subscriptions found, no matching List</h4>';
         if ($this->toolsHelper->isSuperuser()) {
             $sql = 'SELECT ms.id, ms.list_id, ms.user_id, ms.record_type, ms.method_id, ms.created, ';
-            $sql .= "ml.group_code,p.preferred_name,mm.name as 'Method'  ";
+            $sql .= "p.home_group,p.preferred_name,mm.name as 'Method'  ";
             $sql .= 'FROM #__ra_mail_subscriptions AS ms ';
             $sql .= 'LEFT JOIN #__ra_mail_methods AS mm on mm.id = ms.method_id ';
             $sql .= 'LEFT JOIN #__ra_profiles as p ON p.id = ms.user_id ';
@@ -1479,10 +1480,11 @@ class ReportsController extends FormController {
             $sql .= 'WHERE ml.id IS NULL ';
 
             $table = new ToolsTable();
-            $table->add_header("List id,Name,Created,Access,Method");
+            $table->add_header("List id,Group,Name,Created,Access,Method");
             $rows = $this->toolsHelper->getRows($sql);
             foreach ($rows as $row) {
                 $table->add_item($row->list_id);
+                $table->add_item($row->home_group);
                 $table->add_item($row->preferred_name);
                 $table->add_item(HTMLHelper::_('date', $row->created, 'Y-m-d H:i'));
                 $table->add_item(($row->record_type == 1 ? 'Subscriber' : 'Author'));

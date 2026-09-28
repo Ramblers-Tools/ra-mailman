@@ -339,7 +339,12 @@ class ProfileformModel extends FormModel {
 
             // Keep the password-reset requirement for self-registration. The
             // profile remains unpublished until an administrator approves it.
-            $user_id = $personHelper->saveUser($real_name, $email, 1);
+            $user_id = $personHelper->saveUser(
+                    $real_name,
+                    $email,
+                    1,
+                    PersonHelper::USER_MODE_SELF_REGISTER
+            );
 
             if (!$personHelper->profileExistsForUser($user_id)) {
                 throw new \RuntimeException(
@@ -349,10 +354,11 @@ class ProfileformModel extends FormModel {
             }
 
             $personHelper->saveProfileData($user_id, [
-                'home_group' => $home_group,
-                'preferred_name' => $preferred_name,
-                'state' => 0,
+                        'home_group' => $home_group,
+                        'preferred_name' => $preferred_name,
+                        'state' => 0,
             ]);
+            $personHelper->notifySelfRegistration($user_id, $real_name, $email, $home_group);
             Factory::getApplication()->enqueueMessage('Created profile record for ' . $preferred_name . ' in group ' . $home_group, 'info');
         } catch (\Throwable $exception) {
             Factory::getApplication()->enqueueMessage($exception->getMessage(), 'error');

@@ -507,14 +507,17 @@ class SystemController extends FormController {
     }
 
     function test() {
-        $toolsHelper = new ToolsHelper;
         $mailHelper = new MailHelper;
         $personHelper = new PersonHelper;
+        $toolsHelper = new ToolsHelper;
+/*        
 //        $personHelper->createMissingPlaceholderProfiles();
         $userId = 2261;
         $name = 'mac@bigley.me.uk';
         $response = $personHelper->ensurePlaceholderProfile($userId, $name);
         echo 'Response: ' . $response . '<br>';
+*/
+
         $target = 'index.php?option=com_ra_mailman&view=reports';
         echo $toolsHelper->backButton($target);
         return;

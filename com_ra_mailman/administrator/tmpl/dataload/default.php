@@ -6,7 +6,7 @@
  * @copyright   Copyright (C) 2020. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  * @author      Charlie Bigley <webmaster@bigley.me.uk>
- *              Actual processing is carried out in site/helpers/UserHelper.php
+ *              Actual processing is carried out by the DataLoad processor.
  * 05/12/22 CB Created from com ramblers
  * 14/07/25 CB allow checking of file format
  * 27/07/25 CB abbreviated name

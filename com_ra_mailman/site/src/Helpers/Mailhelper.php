@@ -551,6 +551,15 @@ class Mailhelper {
         $user = $this->app->getSession()->get('user');
         $context = 'com_ra_mailman.default_group.';
 
+        // RA Members reports may temporarily override the normal home-group
+        // scope. Keep this state separate from MailMan's own scope.
+        if ($this->app->input->getCmd('option') === 'com_ra_members') {
+            $override = strtoupper(trim((string) $this->app->getUserState('com_ra_members.reports.group', '')));
+            if ($override === 'N' || preg_match('/^[A-Z0-9]{4}$/', $override)) {
+                return $override;
+            }
+        }
+
         $default_group = $this->app->getUserState($context, '');
         if ($default_group == '') {
             $params = ComponentHelper::getParams('com_ra_mailman');

@@ -1,14 +1,12 @@
 <?php
 
 /**
- * @version    4.4.4
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
+ * If invoked from the dataload template in validate mode, it invokes LoadHelper::scanFile
+ * If invoked from the dataload template in process mode, it invokes LoadHelper::processFile
  * 10/10/24 CB created
  * 04/05/25 CB cater for update of file name on upload
  * 26/05/25 CB import report
+ * 22/09/26 CB extensively refactored
  */
 defined('_JEXEC') or die;
 
@@ -20,13 +18,13 @@ use Ramblers\Component\Ra_mailman\Site\Helpers\LoadHelper;
 // Import CSS
 $wa = $this->document->getWebAssetManager();
 $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
-
+ $loader = new LoadHelper;
 /*
  * The validation pass uses the header-driven loader. Pass two is invoked
  * through LoadHelper so this template contains no persistence dependency.
  */
 if ((string) $this->processing === '0') {
-    $loader = new LoadHelper;
+
     $dataTypeLabels = [
         '3' => 'Members list from corporate feed',
         '4' => 'MailChimp export',
@@ -74,7 +72,6 @@ if ((string) $this->processing === '0') {
     return;
 }
 
-$loader = new LoadHelper;
 $response = $loader->processFile([
     'method_id' => $this->method_id,
     'list_id' => $this->list_id,

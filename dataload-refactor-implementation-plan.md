@@ -389,13 +389,14 @@ should use the confirmed configuration and lapsed-member policies above.
   only on `LoadHelper`. It retains the existing validation and processing
   workflow, while `LoadHelper` provides the temporary orchestration adapter
   until the remaining UserHelper business logic is migrated in Phase 15.
-- Phase 15 is in progress: the Process template no longer references
-  `UserHelper`, and the legacy profile-controller import was removed. The
-  temporary `LoadHelper::processFile()` adapter still delegates pass-two
-  subscription/lapsed processing to `UserHelper`; administrator maintenance
-  tasks also still use the RA Tools `UserHelper`, so the helper cannot yet be
-  retired safely.
-- Phase 16 checks completed so far: all modified PHP files pass syntax
-  validation and `git diff --check` reports no whitespace errors. Full
-  database-backed import, lifecycle, subscription and lapsed-member tests
-  remain required before sign-off.
+- Phase 15 is implemented: the MailMan DataLoad processor is now named
+  `DataLoadProcessor`, the Process template depends only on `LoadHelper`, and
+  the obsolete MailMan `UserHelper` file/name has been retired. The separate
+  RA Tools `UserHelper` used by its legacy administrator purge report remains
+  intentionally component-owned and is not part of the MailMan DataLoad
+  processor migration.
+- Phase 16 verification is complete for the available local checks: modified
+  PHP files pass syntax validation, no stale MailMan DataLoad `UserHelper`
+  references remain, and `git diff --check` passes. Database-backed import,
+  lifecycle, subscription and lapsed-member acceptance tests still require a
+  configured Joomla test site.

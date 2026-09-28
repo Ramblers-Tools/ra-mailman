@@ -3,9 +3,9 @@
 /**
  * Header-driven CSV mapping and validation for the MailMan DataLoad workflow.
  *
- * Persistence and subscription processing remain outside this first slice of
- * the refactor.  The class deliberately returns structured data so the
+ * The class deliberately returns structured data so the
  * administrator view can render messages without the helper emitting HTML.
+ * 22/09/26 Created by GPT 5.6 Luna
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Helpers;
@@ -13,7 +13,7 @@ namespace Ramblers\Component\Ra_mailman\Site\Helpers;
 defined('_JEXEC') or die;
 
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
+use Ramblers\Component\Ra_mailman\Site\Helpers\DataLoadProcessor;
 
 class LoadHelper {
 
@@ -33,7 +33,7 @@ class LoadHelper {
      * the remaining subscription/lapsed logic is migrated in Phase 15.
      */
     public function processFile(array $options): bool {
-        $processor = new UserHelper();
+        $processor = new DataLoadProcessor();
         foreach (['method_id', 'list_id', 'processing', 'filename', 'report_id'] as $property) {
             if (array_key_exists($property, $options)) {
                 $processor->{$property} = $options[$property];
@@ -314,13 +314,10 @@ class LoadHelper {
         }
 
         if ($email === '') {
-            if ($dataType === self::TYPE_INSIGHT && $name !== '') {
-                $errors[] =  $name . ' does not have an email address.';
-            } else {
-                $errors[] = 'Email address is blank.';
-            }
+            // A missing email is expected for some membership records.  It
+            // is counted by the processor, but is not a validation error.
         } elseif (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            $errors[] = 'Invalid email address: ' . $email . '.';
+            $errors[] = 'Invalid email ' . $email . ' found for ' . ($name !== '' ? $name : 'unknown member') . '.';
         }
 
         return $errors;

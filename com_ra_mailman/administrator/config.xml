@@ -4,12 +4,12 @@
         <field
             name="full_version"
             type="radio"
-            label="Full version:"
-            description="Whether to use the full version of the software (for Group/Area sites) or a sub-set of functionality (for Central Office)"
+            label="Scope of availability:"
+            description="If your site serves multiple Groups, you can restrict each Users to their own sub-set"
              default="Y"
             >
-            <option value="Y">Full functionality for Group/Area site</option>
-            <option value="N">Sub-set of functionality for Central Office</option>
+            <option value="Y">Show all Mailing Lists</option>
+            <option value="N">Show Lists for home group only</option>
         </field>      
         <field name="email_header" 
                editor="|" 

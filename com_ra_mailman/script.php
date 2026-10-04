@@ -11,7 +11,8 @@
  * 05/09/26 CB remove JFactory, obtain DatabaseInterface from Joomla, fix deleteFolder
  *             add mail_shots / reply_to
  * 22/08/26 CB depencies on tool plugins
- * 03/10/26 CB use PliginHelp for dependencies (not ComponentHelper)
+ * 03/10/26 CB use PluginHelp for dependencies (not ComponentHelper)
+ * 04/10/16 CB correct syntax for plugin checks
 */
 \defined('_JEXEC') or die;
 
@@ -404,12 +405,12 @@ class Com_Ra_mailmanInstallerScript {
             return $this->fail('RA Mailman requires com_ra_tools version ' . $tools_required
                     . ' or later; found ' . ($tools_version ?: 'no readable version') . '.');
         }
-        if (!PluginHelper::isEnabled('plg_user_ra_profiles', true)) {
+        if (!PluginHelper::isEnabled('user', 'ra_profiles')) {
             Factory::getApplication()->enqueueMessage('This version of RA MailMan requires the enabled plugin plg_user_ra_profiles.', 'warning');
 //            return $this->fail('This version of RA MailMan requires the enabled plugin plg_user_ra_profiles.');
             
         }
-        if (!PluginHelper::isEnabled('plg_system_ra_tools', true)) {
+        if (!PluginHelper::isEnabled('system', 'ra_tools', true)) {
             Factory::getApplication()->enqueueMessage('This version of RA MailMan requires the enabled plugin plg_system_ra_tools.', 'warning');
 //            return $this->fail('This version of RA MailMan requires the enabled plugin plg_system_ra_tools.');
         }

@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS `#__ra_mail_shots` (
         `body` longtext NOT NULL,
         `final_message` longtext,
         `attachment` VARCHAR(255) NOT NULL DEFAULT '',
+        `contact_id` INT NULL,
         `processing_started` DATETIME DEFAULT NULL,
         `send_after` DATETIME DEFAULT NULL,
         `is_scheduled` TINYINT(1) NOT NULL DEFAULT 0,

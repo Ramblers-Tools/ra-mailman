@@ -431,19 +431,11 @@ class Com_Ra_mailmanInstallerScript {
                 Factory::getApplication()->enqueueMessage('Unable to update ra_mail_shots: 5.0.14','warning');
             }
         }
-        // Checked on every update: these columns were previously only added when
-        // upgrading from 4.7.8 or earlier, so later installs never got contact_id
-        // and the Contact override was silently discarded on save.
-        // checkColumn() is a no-op if the column already exists.
-        if (!$this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ')
-                || !$this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ')) {
-            Factory::getApplication()->enqueueMessage('Unable to update ra_mail_shots: contact_id / reply_to','warning');
-        } else {
-            // Back-fill contact_id from the reply_to address already saved, so
-            // existing mailshots reopen showing the contact that was chosen.
-            $this->executeCommand('UPDATE ' . $this->dbPrefix . 'ra_mail_shots AS s '
-                    . 'INNER JOIN ' . $this->dbPrefix . 'users AS u ON u.email = s.reply_to '
-                    . "SET s.contact_id = u.id WHERE s.contact_id IS NULL AND s.reply_to <> ''");
+        if (version_compare($this->current_version, '4.7.8', 'le')) {
+            if (!$this->checkColumn('ra_mail_shots', 'reply_to', 'A', 'VARCHAR(255) NULL AFTER date_sent; ')
+                    || !$this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ')) {
+                Factory::getApplication()->enqueueMessage('Unable to update ra_mail_shots: 4.7.8','warning');
+            }
         }
 
         if (version_compare($this->current_version, $this->version_required, 'ge')) {

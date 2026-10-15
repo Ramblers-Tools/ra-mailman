@@ -145,7 +145,6 @@ CREATE TABLE IF NOT EXISTS `#__ra_mail_shots` (
         `is_scheduled` TINYINT(1) NOT NULL DEFAULT 0,
         `cancelled` TINYINT(1) NOT NULL DEFAULT 0,
         `date_sent` DATETIME DEFAULT NULL,
-        `reply_to` VARCHAR(255) NULL,
         `state` TINYINT NOT NULL,
  	`created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   
 	`created_by` INT NULL DEFAULT "0",

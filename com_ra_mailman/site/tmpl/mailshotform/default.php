@@ -67,9 +67,6 @@ $toolsHelper = new ToolsHelper;
                 echo HTMLHelper::_('uitab.endTab');
                 echo HTMLHelper::_('uitab.addTab', 'myTab', 'event5', 'More Options');
                 echo $this->form->renderField('contact_id');
-                if ($toolsHelper->isSuperuser()) {
-                    echo $this->form->renderField('reply_to');
-                }
                 echo $this->form->renderField('attachment');
                 if (ToolsHelper::isInstalled('com_ra_events')) {
                     $sql = 'SELECT COUNT(id) FROM `#__ra_events` ';

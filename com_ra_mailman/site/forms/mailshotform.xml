@@ -51,14 +51,6 @@
         <option value="0">--Select Contact --</option>
     </field> 
     <field
-        name="reply_to"
-        type="hidden"
-        label="Email"
-        description="Alternative recipient for the reply"
-        required="false"
-        readonly="true"
-        />
-    <field
         name="invitation_preamble"
         type="radio"
         label="Do you want to include an invitation to a future bookable Event?"

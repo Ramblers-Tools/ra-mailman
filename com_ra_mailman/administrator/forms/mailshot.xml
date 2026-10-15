@@ -65,14 +65,6 @@
        >
            <option value="0">--Select Contact --</option>
        </field>     
-       <field
-        name="reply_to"
-        type="text"
-        label="Email"
-        description="Alternative recipient for the reply"
-        required="false"
-        readonly="true"
-        />
         <field
             name="event_id"
             type="event" 

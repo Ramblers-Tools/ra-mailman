@@ -81,28 +81,34 @@ class Import_reportsController extends AdminController {
         $sql .= 'r.num_records, r.num_errors, r.num_users, r.num_subs, r.num_lapsed, ';
         $sql .= 'l.name, m.name AS `Method` ';
         $sql .= 'FROM `#__ra_import_reports` AS r ';
-        $sql .= 'INNER JOIN #__ra_mail_lists as l ON l.id = r.list_id ';
-        $sql .= 'INNER JOIN #__ra_mail_methods AS `m` ON m.id = r.method_id ';
+        $sql .= 'LEFT JOIN #__ra_mail_lists as l ON l.id = r.list_id ';
+        $sql .= 'LEFT JOIN #__ra_mail_methods AS `m` ON m.id = r.method_id ';
         $sql .= 'WHERE r.id= ' . $id;
 //        $target = 'administrator/index.php?option = com_users&view = users ';
         $item = $this->toolsHelper->getItem($sql);
-        echo '<b>Report</b>: ' . $id . '<br>';
-        echo '<b>List</b>: ' . $item->name . '<br>';
-        if (is_null($item->date_completed)) {
-            echo '<div style="color:red"> <b>Date 1</b>: ' . HTMLHelper::_('date', $item->date_phase1, 'H:i d/m/y') . ' Validation only!</div>';
+        echo 'Report<b>: ' . $id . '</b><br>';
+        echo 'List: <b>';
+        if (is_null($item->name)) {
+            echo 'RA Members Insight import';
         } else {
-            echo '<b>Date started</b>: ' . HTMLHelper::_('date', $item->date_phase1, 'H:i:s d/m/y');
-            echo ', <b>Date completed</b>: ' . HTMLHelper::_('date', $item->date_completed, 'H:i:s d/m/y');
-            echo '<br>';
+            echo $item->name;
         }
-        echo '<b>Method</b>: ' . $item->Method . '<br>';
-        echo '<b>File</b>: ' . $item->input_file . '<br>';
-        echo '<b>Number of records</b>: ' . $item->num_records . '<br>';
-        echo '<b>Number of errors</b>: ' . $item->num_errors . '<br>';
-        echo '<b>Number of new users</b>: ' . $item->num_users . '<br>';
-        echo '<b>Number of new subscriptions</b>: ' . $item->num_subs . '<br>';
+        echo '</b><br>';
+        if (is_null($item->date_completed)) {
+            echo '<div style="color:red"> Date 1<b>: ' . HTMLHelper::_('date', $item->date_phase1, 'H:i d/m/y') . ' Validation only!</div>';
+        } else {
+            echo 'Date started<b>: ' . HTMLHelper::_('date', $item->date_phase1, 'H:i:s d/m/y');
+            echo ', </b>Date completed<b>: ' . HTMLHelper::_('date', $item->date_completed, 'H:i:s d/m/y');
+            echo '</b><br>';
+        }
+        echo 'Method<b>: ' . $item->Method . '</b><br>';
+        echo 'File<b>: ' . $item->input_file . '</b><br>';
+        echo 'Number of records<b>: ' . $item->num_records . '</b><br>';
+        echo 'Number of errors<b>: ' . $item->num_errors . '</b><br>';
+        echo 'Number of new users<b>: ' . $item->num_users . '</b><br>';
+        echo 'Number of new subscriptions<b>: ' . $item->num_subs . '</b><br>';
         if ($item->num_lapsed > 0) {
-            echo '<b>Number of members lapsed</b>: ' . $item->num_lapsed . '<br>';
+            echo 'Number of members lapsed<b>: ' . $item->num_lapsed . '</b><br>';
         }
         echo '<br>';
     }

@@ -551,6 +551,15 @@ class Mailhelper {
         $user = $this->app->getSession()->get('user');
         $context = 'com_ra_mailman.default_group.';
 
+        // RA Members reports may temporarily override the normal home-group
+        // scope. Keep this state separate from MailMan's own scope.
+        if ($this->app->input->getCmd('option') === 'com_ra_members') {
+            $override = strtoupper(trim((string) $this->app->getUserState('com_ra_members.reports.group', '')));
+            if ($override === 'N' || preg_match('/^[A-Z0-9]{4}$/', $override)) {
+                return $override;
+            }
+        }
+
         $default_group = $this->app->getUserState($context, '');
         if ($default_group == '') {
             $params = ComponentHelper::getParams('com_ra_mailman');
@@ -1087,7 +1096,7 @@ class Mailhelper {
         $sql .= 'WHERE id=' . $subscription_id;
         $item = $this->toolsHelper->getItem($sql);
         if ($item->state == 0) {
-            $this->subscribe($item->list_id, $item->user_id, $item->record_type, 2);
+            $this->subscribe($item->list_id, $item->user_id, $item->record_type, 2, true);
         } else {
             $this->unsubscribe($item->list_id, $item->user_id, 2);
         }
@@ -1164,9 +1173,10 @@ class Mailhelper {
 //      own group_code - needed before getEmailSetup() so the branding (logo/colours/
 //      header) used matches the mailshot's actual list rather than whichever group the
 //      current admin's own profile happens to default to.
-        $sql = 'SELECT ms.reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
+        $sql = 'SELECT contact.email AS reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'LEFT JOIN #__users AS contact ON contact.id = ms.contact_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
         if (empty($item) || !isset($item->email)) {
@@ -1253,11 +1263,12 @@ class Mailhelper {
 //     since send_after is written using MySQL's NOW() and comparing it via Factory::getDate()
 //     in PHP silently applies a timezone conversion, causing a spurious delay of the server's UTC offset.
         $sql = 'SELECT l.id, l.group_code, u.email, ';
-        $sql .= 'ms.processing_started, ms.send_after, ms.date_sent, ms.title, ms.event_id, ms.reply_to, ';
+        $sql .= 'ms.processing_started, ms.send_after, ms.date_sent, ms.title, ms.event_id, contact.email AS reply_to, ';
         $sql .= '(ms.send_after IS NOT NULL AND ms.send_after > NOW()) AS still_queued ';
         $sql .= 'FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'LEFT JOIN #__users AS contact ON contact.id = ms.contact_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
         if (empty($item) || !isset($item->id)) {
@@ -1768,7 +1779,7 @@ class Mailhelper {
         $objTable->generate_table();
     }
 
-    public function subscribe($list_id, $user_id, $record_type, $method_id, $force = true) {
+    public function subscribe($list_id, $user_id, $record_type, $method_id, $force = false) {
 // Subscribes the given user to the given list
 // if invoked from the front-end, $user_id will usually be the current user,
 // but from the back-end, or if invoked from view list_select, it could be any user
@@ -1776,11 +1787,9 @@ class Mailhelper {
 // $record_type (from back end) could be 1=Subscription or 2=author
 //
 // $force controls whether a previously cancelled (state=0) or purged (state=-2)
-// subscription can be silently reactivated. Deliberate admin/user-initiated
-// subscribe actions default to true (unchanged behaviour); passive bulk imports
-// (UserHelper::processRecords()) pass false, since a returning user who had
-// actively unsubscribed should not be silently re-subscribed just because they
-// reappear in an import feed.
+// subscription can be silently reactivated. Passive imports and ordinary
+// subscribe requests do not reinstate an opted-out subscription. The explicit
+// administrator resubscribe action passes true.
         if (JDEBUG) {
             $message = "Creating subscription for list=" . $list_id . ', user=' . $user_id;
             $message .= ", record_type=" . $record_type . ', method_id=' . $method_id;

@@ -28,7 +28,6 @@ use Joomla\CMS\Tag\TaggableTableTrait;
 use \Joomla\Database\DatabaseDriver;
 use \Joomla\Registry\Registry;
 use \Joomla\Utilities\ArrayHelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 /**

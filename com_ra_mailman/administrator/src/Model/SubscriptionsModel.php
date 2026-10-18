@@ -143,6 +143,7 @@ class SubscriptionsModel extends ListModel {
         $query->innerJoin($this->_db->qn('#__ra_mail_methods') . ' AS `m` ON m.id = a.method_id');
         $query->innerJoin($this->_db->qn('#__users') . ' AS `u` ON u.id = a.user_id');
         $query->leftJoin($this->_db->qn('#__ra_profiles') . ' AS `p` ON p.id = a.user_id');
+        $query->where("(p.state = 1 AND p.home_group <> 'ZZ99')");
         $query->leftJoin($this->_db->qn('#__ra_mail_lists') . ' AS `l` ON l.id = a.list_id');
         $query->leftJoin($this->_db->qn('#__ra_mail_access') . ' AS `ma` ON ma.id = a.record_type');
 

@@ -14,6 +14,7 @@ namespace Ramblers\Component\Ra_mailman\Site\View\Profileform;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
+use Joomla\CMS\Component\ComponentHelper;
 use \Joomla\CMS\Factory;
 use \Joomla\CMS\Helper\ContentHelper;
 use \Joomla\CMS\Language\Text;
@@ -44,6 +45,12 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
     public function display($tpl = null) {
         $app = Factory::getApplication();
         $this->user = $this->getCurrentUser();
+
+        if ((int) $this->user->id === 0
+                && !ComponentHelper::getParams('com_ra_tools')->get('allow_self_registration', 1)) {
+            $app->enqueueMessage('Self-registration is not currently available.', 'error');
+            return;
+        }
 
         $this->state = $this->get('State');
         $this->item = $this->get('Item');

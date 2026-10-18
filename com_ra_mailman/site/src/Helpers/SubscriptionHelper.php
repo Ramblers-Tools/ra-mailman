@@ -192,6 +192,7 @@ class SubscriptionHelper {
         $sql .= 'LEFT JOIN #__ra_profiles AS p ON p.id = s.user_id ';
         $sql .= 'LEFT JOIN #__ra_mail_lists AS l ON l.id = s.list_id ';
         $sql .= 'WHERE s.id=' . $id;
+        $sql .= " AND p.state = 1 AND p.home_group <> 'ZZ99'";
         $item = $objHelper->getItem($sql);
         $this->list_id = $item->list_id;
         $this->user_id = $item->user_id;

@@ -51,9 +51,6 @@ $self .= '&id=' . (int) $this->item->id . '&list_id=' . (int) $this->list_id;
                     }
                 }
                 echo $this->form->renderField('contact_id');
-                if ($toolsHelper->isSuperuser()) {
-                    echo $this->form->renderField('reply_to');
-                }
                 echo $this->form->renderField('attached_file');
 
                 echo $this->form->renderField('attachment');

@@ -1,11 +1,7 @@
 <?php
 /**
- * @version    4.7.2
- * @package    com_ra_mailman
- * @author     Charlie Bigley <charlie@bigley.me.uk>
- * @copyright  2025 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 17/07/25 CB regenerated, but use registerAndUseStyle
+ * 21/09/26 Cb show audit even if unpublished
  */
 // No direct access
 defined('_JEXEC') or die;
@@ -125,9 +121,7 @@ if (!empty($saveOrder)) {
                                 }
                                 echo '</td>';
                                 echo '<td>';
-                                if ($item->state == 1) {
-                                    echo $objHelper->buildlink($target_info . $item->id, '<i class="icon-info"></i>');
-                                }
+                                echo $objHelper->buildlink($target_info . $item->id, '<i class="icon-info"></i>');
                                 echo '</td>';
                                 ?>
                             </tr>

@@ -1,11 +1,7 @@
 <?php
 /**
- * @version    4.4.4
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 02/06/25 CB Created
+ * 28/09/26 CB show num_records
  */
 // No direct access
 defined('_JEXEC') or die;
@@ -52,6 +48,7 @@ $objHelper = new ToolsHelper;
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Group', 'l.group_code', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'List', 'l.name', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Method', 'm.name', $listDirn, $listOrder) . '</th>';
+                            echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Records', 'a.num_records', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Errors', 'a.num_errors', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Users', 'a.num_users', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Subs', 'a.num_subs', $listDirn, $listOrder) . '</th>';
@@ -89,7 +86,8 @@ $objHelper = new ToolsHelper;
                             echo '</td>';
                             echo '<td>' . $item->group . '</td>';
                             echo '<td>' . $item->list . '</td>';
-                            echo '<td>' . $item->Method . '</td>';
+                            echo '<td>' . $item->Method . '</td>'; 
+                            echo '<td>' . $item->num_records . '</td>';
                             echo '<td>';
                             if ($item->num_errors > 0) {
                                 $link = $target . 'showErrors&id=' . $item->id;

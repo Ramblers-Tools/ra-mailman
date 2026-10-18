@@ -10,6 +10,7 @@
  * 17/02/25 CB set up $this->user from getCurrentUser
  * 20/03/25 CB Return to Dashboard
  * 27/08/25 CB Help
+ * 17/09/26 CB correct back
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Profiles;
@@ -165,7 +166,7 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             }
         }
 
-        ToolbarHelper::cancel('profile.cancel', 'Return to Dashboard');
+        ToolbarHelper::cancel('profiles.cancel', 'Return to Dashboard');
         $help_url = 'https://docs.stokeandnewcastleramblers.org.uk/mail-manager.html?view=article&id=441:mm-02-5-users&catid=34';
         ToolbarHelper::help('', false, $help_url);
     }

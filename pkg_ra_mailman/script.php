@@ -2,20 +2,9 @@
 
 /*
  * Installation script
- * 29/04/25 CB getDbVersion and getVersion
- * 14/06/25 CB add link to dashboard
- * 31/07/25 CB this->version_required
- * 09/08/25 CB ra_mail_lists / emails_outstanding
- * 06/04/26 CB add mail_list/description
- * 15/08/26 CB add send_after and is_scheduled to ra_mail_shots
- * 05/09/26 CB remove JFactory, obtain DatabaseInterface from Joomla, fix deleteFolder
- *             add mail_shots / reply_to
- * 22/08/26 CB depencies on tool plugins
- * 15/10/26 RH reinstate in manifest (moved back to component root so Joomla can copy it),
- *             report progress via enqueueMessage rather than echo,
- *             remove plugin checks (the package installs them),
- *             postflight ensures ra_mail_shots.contact_id exists on every install/update
- *             and back-fills it from the legacy reply_to column if present
+ * 18/10/26 CB Created from com_ra_mailman script
+ *             Deleted schema updates
+ * 
  */
 \defined('_JEXEC') or die;
 
@@ -27,7 +16,7 @@ use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
 use Joomla\Database\DatabaseInterface;
 
-class Com_Ra_mailmanInstallerScript {
+class Pkg_Ra_mailmanInstallerScript {
 
     private $minimumJoomlaVersion = '4.2';
     private $minimumPHPVersion = JOOMLA_MINIMUM_PHP;
@@ -37,6 +26,8 @@ class Com_Ra_mailmanInstallerScript {
     private $version_required;
     private $dbPrefix;
     private $db;
+    private $versionCache = [];
+    private $dbVersionCache = [];
 
     private function message(string $message, string $type = 'message'): void {
         Factory::getApplication()->enqueueMessage($message, $type);
@@ -170,21 +161,33 @@ class Com_Ra_mailmanInstallerScript {
     }
 
     public function getDbVersion($component = 'com_ra_mailman') {
+        if (array_key_exists($component, $this->dbVersionCache)) {
+            return $this->dbVersionCache[$component];
+        }
+
         $sql = 'SELECT s.version_id ';
         $sql .= 'FROM #__extensions as e ';
         $sql .= 'LEFT JOIN #__schemas AS s ON s.extension_id = e.extension_id ';
         $sql .= 'WHERE e.element="' . $component . '"';
-        return $this->getValue($sql);
+        $this->dbVersionCache[$component] = $this->getValue($sql);
+
+        return $this->dbVersionCache[$component];
     }
 
     public function getVersion($component = 'com_ra_mailman') {
+        if (array_key_exists($component, $this->versionCache)) {
+            return $this->versionCache[$component];
+        }
+
         // This returns the version as displayed by System / Manage extensions
         $sql = 'SELECT manifest_cache ';
         $sql .= 'FROM  #__extensions  ';
         $sql .= 'WHERE element="' . $component . '"';
         $data = json_decode((string) $this->getValue($sql));
 
-        return (is_object($data) && isset($data->version)) ? (string) $data->version : null;
+        $this->versionCache[$component] = (is_object($data) && isset($data->version)) ? (string) $data->version : null;
+
+        return $this->versionCache[$component];
     }
 
     private function getValue($sql) {
@@ -194,7 +197,7 @@ class Com_Ra_mailmanInstallerScript {
     }
 
     public function install($parent): bool {
-        $this->message('Installing RA MailMan (com_ra_mailman)');
+        $this->message('Installing RA MailMan (pkg_ra_mailman)');
 
         return true;
     }
@@ -204,21 +207,23 @@ class Com_Ra_mailmanInstallerScript {
     }
 
     public function uninstall($parent): bool {
-        $this->message('Uninstalling RA MailMan (com_ra_mailman), version '
-                . ($this->getVersion() ?? 'not recorded')
-                . ', database version ' . ($this->getDbVersion() ?: 'not recorded'));
+        $componentVersion = $this->getVersion('com_ra_mailman') ?? 'not recorded';
+        $componentDbVersion = $this->getDbVersion('com_ra_mailman') ?: 'not recorded';
+        $this->message('Uninstalling RA MailMan package (pkg_ra_mailman); '
+            . 'component com_ra_mailman version ' . $componentVersion
+            . ', component database version ' . $componentDbVersion);
 
         return true;
     }
 
     public function update($parent): bool {
-        $this->message('Updating RA MailMan (com_ra_mailman)');
+        $this->message('Updating RA MailMan (pkg_ra_mailman)');
 
         return true;
     }
 
     public function postflight($type, $parent) {
-        $this->message('Postflight RA MailMan (com_ra_mailman)');
+        $this->message('Postflight RA MailMan (pkg_ra_mailman)');
 
         if ($type == 'uninstall') {
             return true;
@@ -242,7 +247,8 @@ class Com_Ra_mailmanInstallerScript {
             $this->message('Mailshot Contact override will not be saved until ra_mail_shots.contact_id is added', 'warning');
         }
 
-        $this->message('com_ra_mailman is now at ' . $this->getVersion());
+        $componentVersion = $this->getVersion('com_ra_mailman') ?? 'not recorded';
+        $this->message('com_ra_mailman is now at ' . $componentVersion);
         if ($this->reconfigure_message == true) {
             $this->red('Please review and update the configuration settings for com_ra_mailman.');
         }
@@ -279,22 +285,18 @@ class Com_Ra_mailmanInstallerScript {
             return true;
         }
 
-        $this->current_version = $this->getVersion();
+        $this->current_version = $this->getVersion('com_ra_mailman');
+        $currentDbVersion = $this->getDbVersion('com_ra_mailman') ?: 'not recorded';
 
         if ($this->current_version === null) {
             return $this->fail('Unable to determine the currently installed com_ra_mailman version.');
         }
 
         $this->message('com_ra_mailman already present, version ' . $this->current_version
-                . ', database version ' . ($this->getDbVersion() ?: 'not recorded'));
+            . ', database version ' . $currentDbVersion);
 
         $this->version_required = '5.0.16';
-        if (version_compare($this->current_version, '5.0.14', 'le')) {
-            if (!$this->checkColumn('ra_mail_shots', 'send_after', 'A', 'DATETIME NULL AFTER processing_started; ')
-                    || !$this->checkColumn('ra_mail_shots', 'is_scheduled', 'A', 'TINYINT NULL AFTER send_after; ')) {
-                $this->message('Unable to update ra_mail_shots: 5.0.14', 'warning');
-            }
-        }
+
 
         if (version_compare($this->current_version, $this->version_required, 'ge')) {
             $this->message('Current version is ' . $this->current_version . ', no additional processing required');
@@ -303,25 +305,7 @@ class Com_Ra_mailmanInstallerScript {
             $this->message('Version is currently ' . $this->current_version . ', '
                     . 'Requires version >= ' . $this->version_required, 'warning');
         }
-        if (version_compare($this->current_version, '4.7.0', 'le')) {
-            if (!$this->checkColumn('ra_mail_lists', 'description', 'A', 'VARCHAR(512) DEFAULT "" AFTER name; ')) {
-                return false;
-            }
-            if (!$this->checkColumn('ra_mail_shots', 'record_type', 'A', 'VARCHAR(1) DEFAULT "M" AFTER id; ')
-                    || !$this->checkColumn('ra_mail_shots', 'mail_list_id', 'U', 'INT NULL; ')
-                    || !$this->checkColumn('ra_mail_shots', 'event_id', 'A', 'INT NULL AFTER mail_list_id; ')) {
-                $this->message('Unable to update ra_mail_shots: 4.7.0', 'warning');
-            }
-        }
-        if (version_compare($this->current_version, '4.6.0', 'le')) {
-            $this->message('Deleting redundant view profile');
-            $this->deleteView('Profile');
-        }
-        if (version_compare($this->current_version, '4.5.0', 'le')) {
-            if (!$this->checkColumn('ra_mail_lists', 'emails_outstanding', 'A', 'INT DEFAULT "0" AFTER footer; ')) {
-                return false;
-            }
-        }
+
         return true;
     }
 

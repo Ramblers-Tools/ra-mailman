@@ -44,20 +44,12 @@
             FROM #__users AS u
             INNER JOIN #__contact_details AS c
                 ON c.user_id = u.id
-            UNION
-            SELECT 0, '--Select Contact --'
             ORDER BY text"
         key_field="value"
         value_field="text"
-    /> 
-    <field
-        name="reply_to"
-        type="hidden"
-        label="Email"
-        description="Alternative recipient for the reply"
-        required="false"
-        readonly="true"
-        />
+    >
+        <option value="0">--Select Contact --</option>
+    </field> 
     <field
         name="invitation_preamble"
         type="radio"

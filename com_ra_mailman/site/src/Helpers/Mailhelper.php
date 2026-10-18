@@ -1173,9 +1173,10 @@ class Mailhelper {
 //      own group_code - needed before getEmailSetup() so the branding (logo/colours/
 //      header) used matches the mailshot's actual list rather than whichever group the
 //      current admin's own profile happens to default to.
-        $sql = 'SELECT ms.reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
+        $sql = 'SELECT contact.email AS reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'LEFT JOIN #__users AS contact ON contact.id = ms.contact_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
         if (empty($item) || !isset($item->email)) {
@@ -1262,11 +1263,12 @@ class Mailhelper {
 //     since send_after is written using MySQL's NOW() and comparing it via Factory::getDate()
 //     in PHP silently applies a timezone conversion, causing a spurious delay of the server's UTC offset.
         $sql = 'SELECT l.id, l.group_code, u.email, ';
-        $sql .= 'ms.processing_started, ms.send_after, ms.date_sent, ms.title, ms.event_id, ms.reply_to, ';
+        $sql .= 'ms.processing_started, ms.send_after, ms.date_sent, ms.title, ms.event_id, contact.email AS reply_to, ';
         $sql .= '(ms.send_after IS NOT NULL AND ms.send_after > NOW()) AS still_queued ';
         $sql .= 'FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'LEFT JOIN #__users AS contact ON contact.id = ms.contact_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
         if (empty($item) || !isset($item->id)) {

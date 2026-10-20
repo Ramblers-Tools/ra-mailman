@@ -1,11 +1,6 @@
 <?php
 
 /**
- * @version    4.6.0
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 15/06/23 CB use ra_mail_access
  * 20/06/23 CB copy code from 1.1.4
  * 08/04/24 CB showUserList - include access permitted
@@ -19,6 +14,7 @@
  * 16/09/25 CB showSubscribers - sequence by email
  * 16/10/25 CB remove diagnostic display
  * 20/10/25 CB delete Import Reports
+ * 20/10/26 CB always showSubscribers in ascending name order
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -741,11 +737,9 @@ class Mail_lstController extends FormController {
         if ($this->toolsHelper->isSuperuser()) {
             $showEmail = true;
             $table_headings = 'User,email,Group,Access,Created,Last Updated,Expires,Reminder,Status,';
-            $sort = ' ORDER BY s.state DESC, u.email';
         } else {
             $showEmail = false;
-            $table_headings = 'User,Group,Access,Created,Last Updated';
-            $sort = ' ORDER BY s.state DESC, u.name';
+            $table_headings = 'User,Group,Access,Created,Last Updated';         
         }
         $sql = "SELECT ";
         $sql .= "u.id, p.preferred_name, u.email, u.requireReset, ";
@@ -766,7 +760,7 @@ class Mail_lstController extends FormController {
             $sql .= ' AND s.record_type=2 ';
         }
         $sql .= 'AND s.list_id=' . $list_id;
-        $sql .= $sort;
+        $sql .=  ' ORDER BY s.state DESC, u.name';
 //        echo $sql;
         $rows = $this->toolsHelper->getRows($sql);
 

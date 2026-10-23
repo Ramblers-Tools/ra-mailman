@@ -31,6 +31,7 @@ use Joomla\CMS\Layout\LayoutHelper;
 use Joomla\CMS\MVC\Controller\FormController;
 //use Joomla\CMS\Router\Route;
 use Joomla\CMS\Toolbar\ToolbarHelper;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
@@ -50,7 +51,7 @@ class ReportsController extends FormController {
 
     public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
         parent::__construct($config, $factory);
-        $this->db = Factory::getDbo();
+        $this->db = Factory::getContainer()->get(DatabaseInterface::class);
         $this->toolsHelper = new ToolsHelper;
         $this->mailHelper = new MailHelper;
         $this->app = Factory::getApplication();

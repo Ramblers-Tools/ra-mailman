@@ -4,23 +4,25 @@
  * Installation script
  * 18/10/26 CB Created from com_ra_mailman script
  *             Deleted schema updates
- * 
+ * 21/10/26 CB Updated minimumToolsVersion to 4.0.14
  */
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
-use Joomla\CMS\Filesystem\File;
-use Joomla\CMS\Filesystem\Folder;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
+use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\Database\DatabaseInterface;
+use Joomla\Filesystem\File;
+use Joomla\Filesystem\Folder;
 
 class Pkg_Ra_mailmanInstallerScript {
 
-    private $minimumJoomlaVersion = '4.2';
+    private $minimumJoomlaVersion = '5.6';
     private $minimumPHPVersion = JOOMLA_MINIMUM_PHP;
-    private $minimumToolsVersion = '4.0.0';
+    private $minimumPackagePHPVersion = '8.3.36';
+    private $minimumToolsVersion = '4.0.14';
     private $reconfigure_message;
     private $current_version;
     private $version_required;
@@ -29,9 +31,6 @@ class Pkg_Ra_mailmanInstallerScript {
     private $versionCache = [];
     private $dbVersionCache = [];
 
-    private function message(string $message, string $type = 'message'): void {
-        Factory::getApplication()->enqueueMessage($message, $type);
-    }
 
     function buildButton($url, $text, $newWindow = 0, $colour = '') {
         if ($colour == '') {
@@ -108,7 +107,7 @@ class Pkg_Ra_mailmanInstallerScript {
                 $this->message('File ' . $file . ' deleted');
             }
         } else {
-            $this->message('Unable to delete ' . $file . ': file not found');
+            $this->message('Unable to delete ' . $file . ': file not found','warning');
         }
     }
 
@@ -122,7 +121,7 @@ class Pkg_Ra_mailmanInstallerScript {
                 $this->message('Folder ' . $folder . ' deleted');
             }
         } else {
-            $this->message('Unable to delete ' . $folder . ': folder not found');
+            $this->message('Unable to delete ' . $folder . ': folder not found', 'warning');
         }
     }
 
@@ -202,8 +201,14 @@ class Pkg_Ra_mailmanInstallerScript {
         return true;
     }
 
+    private function message(string $message, string $type = 'message'): void {
+        Factory::getApplication()->enqueueMessage($message, $type);
+    }
+    
     public function red($text) {
-        $this->message($text, 'warning');
+        echo '<p><span style="color: #ff0000;"><strong>';
+        echo $text;
+        echo '</strong></span></p>';
     }
 
     public function uninstall($parent): bool {
@@ -248,14 +253,14 @@ class Pkg_Ra_mailmanInstallerScript {
         }
 
         $componentVersion = $this->getVersion('com_ra_mailman') ?? 'not recorded';
-        $this->message('com_ra_mailman is now at ' . $componentVersion);
+        echo 'com_ra_mailman is now at ' . $componentVersion;
         if ($this->reconfigure_message == true) {
             $this->red('Please review and update the configuration settings for com_ra_mailman.');
         }
 
-        $this->message('<b>Useful links</b><br>'
+        echo '<b>Useful links</b><br>'
                 . $this->buildButton('index.php?option=com_ra_tools&view=dashboard', 'Dashboard', false, 'granite') . '<br>'
-                . $this->buildButton('index.php?option=com_config&view=component&component=com_ra_mailman', 'Configure'));
+                . $this->buildButton('index.php?option=com_config&view=component&component=com_ra_mailman', 'Configure');
         return true;
     }
 
@@ -266,6 +271,9 @@ class Pkg_Ra_mailmanInstallerScript {
         }
         if (!empty($this->minimumPHPVersion) && version_compare(PHP_VERSION, $this->minimumPHPVersion, '<')) {
             return $this->fail(Text::sprintf('JLIB_INSTALLER_MINIMUM_PHP', $this->minimumPHPVersion));
+        }
+        if (version_compare(PHP_VERSION, $this->minimumPackagePHPVersion, '<')) {
+            $this->message('RA MailMan is recommended for PHP ' . $this->minimumPackagePHPVersion . ' or later; this site is running PHP ' . PHP_VERSION . '.', 'warning');
         }
         if (!empty($this->minimumJoomlaVersion) && version_compare(JVERSION, $this->minimumJoomlaVersion, '<')) {
             return $this->fail(Text::sprintf('JLIB_INSTALLER_MINIMUM_JOOMLA', $this->minimumJoomlaVersion));
@@ -281,6 +289,16 @@ class Pkg_Ra_mailmanInstallerScript {
             return $this->fail('RA Mailman requires com_ra_tools version ' . $this->minimumToolsVersion
                     . ' or later; found ' . ($tools_version ?: 'no readable version') . '.');
         }
+       if (!PluginHelper::isEnabled('user', 'ra_profiles')) {
+            $this->message('This version of RA MailMan requires the enabled plugin plg_user_ra_profiles.','warning');
+//            return $this->fail('This version of RA MailMan requires the enabled plugin plg_user_ra_profiles.');
+            
+        }
+        if (!PluginHelper::isEnabled('system', 'ra_tools', true)) {
+            $this->message('This version of RA MailMan requires the enabled plugin plg_system_ra_tools.', 'warning');
+//            return $this->fail('This version of RA MailMan requires the enabled plugin plg_system_ra_tools.');
+        }
+         
         if ($type == 'install') {
             return true;
         }

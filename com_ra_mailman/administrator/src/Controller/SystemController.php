@@ -23,6 +23,7 @@ use Joomla\CMS\Toolbar\ToolbarHelper;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\MVC\Factory\MVCFactoryInterface;
+use Joomla\Database\DatabaseInterface;
 use Joomla\Input\Input;
 use Joomla\CMS\User\UserFactoryInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
@@ -392,7 +393,7 @@ class SystemController extends FormController {
     }
 
     function logMessage($record_type, $ref, $message) {
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
 
 // Create a new query object.
         $query = $db->getQuery(true);

@@ -8,15 +8,16 @@
 <extension type="component" version="4.0" method="upgrade">
     <name>RA Mailman</name>
     <element>com_ra_mailman</element>
-    <creationDate>25 May 2026</creationDate>
+    <creationDate>23 Oct 2026</creationDate>
     <copyright>Copyright (C) 2022. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
     <author>Ramblers Tools</author>
     <authorEmail>support@ramblers.tools</authorEmail>
     <authorUrl>https://ramblers.tools</authorUrl>
-    <version>5.1.3</version>
+    <version>5.1.5</version>
     <description>Support for Mailing lists</description>
     <namespace path="src">Ramblers\Component\Ra_mailman</namespace>
+    <scriptfile>script.php</scriptfile>
     <files folder="site">
         <folder>forms</folder>
         <folder>languages</folder>

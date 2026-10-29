@@ -20,6 +20,7 @@
  * 15/06/26 CB lookupMember
  * 23/06/26 CB Tweak showSubscriptionDetails
  * 28/06/26 CB optionally over-ride send_to, draft emails
+ * 23/10/26 CB Get logo for Organisations if multi-site
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Helpers;
@@ -30,6 +31,7 @@ use Joomla\CMS\Helper\ContentHelper;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Object\CMSObject;
 use Joomla\CMS\Uri\Uri;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_events\Site\Helpers\BookingHelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\SubscriptionHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
@@ -56,7 +58,7 @@ class Mailhelper {
     protected $query;
 
     public function __construct() {
-        $this->db = Factory::getDbo();
+        $this->db = Factory::getContainer()->get(DatabaseInterface::class);
         $this->toolsHelper = new ToolsHelper;
         $this->app = Factory::getApplication();
         $this->user = $this->app->getSession()->get('user');
@@ -241,11 +243,8 @@ class Mailhelper {
         $sql .= 'LEFT JOIN #__ra_profiles AS p ON p.id = l.owner_id ';
         $sql .= 'WHERE m.id=' . $mailshot_id;
 
-        $db = Factory::getDbo();
-        $query = $db->getQuery(true);
-        $db->setQuery($sql);
-        $db->execute();
-        $item = $db->loadObject();
+        $item = $this->toolsHelper->getItem($sql);
+
         // Save the event id in case an invitation link is required.
         $this->event_id = $item->event_id;
         if ($item->event_id > 0) {
@@ -316,12 +315,12 @@ class Mailhelper {
             }
         }
         // Leave the body div open here so event content can be inserted later.
-        // Footer comprises the footer from the list plus the component footer.
-        // It is left open so the unsubscribe link can be appended later.
+        // Footer comprises the list footer plus the system footer from the component
+        // configuration. It is left open so the unsubscribe link can be appended later.
         $this->footer = '<div style="background: ' . $setup->colour_footer;
         $this->footer .= '; padding: 10px;  border-radius: 5%; ">';
         $this->footer .= $item->footer . '<br>';
-        $this->footer .= $setup->email_footer;
+        $this->footer .= $setup->system_footer;
         $this->footer .= '<br>';
         $this->footer .= 'To unsubscribe from future emails, click ';
         // N.B. final </div> not included
@@ -409,7 +408,7 @@ class Mailhelper {
             Factory::getApplication()->enqueueMessage("You are not logged in", 'error');
             return false;
         }
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $jinput = Factory::getApplication()->input;
         $ip_address = $jinput->server->get('REMOTE_ADDR');
         $sql = 'SELECT email FROM #__users WHERE id=' . $user_id;
@@ -604,27 +603,36 @@ class Mailhelper {
         }
     }
 
-    public function getEmailSetup() {
+public function getEmailSetup() {
         $params = ComponentHelper::getParams('com_ra_mailman');
-        // Logo/height/width/logo_align now come from com_ra_tools's own component
-        // config, not from a per-organisation logo or com_ra_mailman's own settings -
-        // one logo for the whole installation, matching the site's own website.
+        // Logo height/width/ come from com_ra_tools's own component
         $toolsParams = ComponentHelper::getParams('com_ra_tools');
 
         $setup = (object) [
-                    'website' => $params->get('website', ''),
-                    'email_header' => $params->get('email_header', ''),
-                    'email_footer' => $params->get('email_footer', ''),
+
                     'logo_file' => $toolsParams->get('logo', ''),
                     'logo_align' => $toolsParams->get('logo_align', 'right'),
+                    'height' => $toolsParams->get('height', 90),
+                    'width' => $toolsParams->get('width', 90),
+
+                    'website' => $params->get('website', ''),
+                    'email_header' => $params->get('email_header', ''),
+                    'system_footer' => $params->get('email_footer', ''),
                     'colour_header' => $params->get('colour_header', 'rgba(20, 141, 168, 0.5)'),
                     'colour_body' => $params->get('colour_body', 'rgba(20, 141, 168, 0.5)'),
                     'colour_footer' => $params->get('colour_footer', 'rgba(20, 141, 168, 0.8)'),
-                    'height' => $toolsParams->get('height', 90),
-                    'width' => $toolsParams->get('width', 90),
+
                     'setup_source' => 'Component configuration',
                     'setup_code' => '',
         ];
+
+        /*
+        Normally, customisation details are taken directly from RA Tools (logo) and RA Mailman (everything else)
+
+        However, if multiple groups are being served by the same website, customisation details are taken
+        from the organisation table instead. Note that if values are not present in the table,
+        the component configuration serves as the default.
+        */
         if ($this->batch_mode) {
             $code = $this->config_group;
             $this->toolsHelper->createLog('RA Mailman', '6', 'EmailSetup', 'Batch mode: config=' . $this->config_group);
@@ -632,45 +640,53 @@ class Mailhelper {
             $code = $this->getDefaultGroup();
         }
 
-        if (!empty($code) && $code !== 'N') {
-            $sql = 'SELECT code, name, website, email_header, colour_header, colour_body, colour_footer ';
-            $sql .= 'FROM #__ra_organisations ';
-            $sql .= 'WHERE code=' . $this->db->quote($code);
-            $item = $this->toolsHelper->getItem($sql);
+        if (empty($code) || $code === 'N') {
+            return $setup;
+        }
 
-            if (is_null($item)) {
-                if ($this->batch_mode) {
-                    $message = 'Email setup not found for code ' . $code . ' - using component defaults';
-                    $this->messages[] = $message;
-                    return $setup;
-                } else {
-                    Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
-                    return false;
-                }
-            }
+        $sql = 'SELECT code, name, website, email_header, colour_header, colour_body, colour_footer, ';
+        $sql .= 'logo, logo_align ';
+        // Logo height and width should be added to the Organisation table
+        // $sql .= 'logo, logo_align, height, width ';
+        $sql .= 'FROM #__ra_organisations ';
+        $sql .= 'WHERE code=' . $this->db->quote($code);
+        $item = $this->toolsHelper->getItem($sql);
 
-            $setup->setup_source = 'Organisation table';
-            $setup->setup_code = $item->code;
-            // website is deliberately NOT overridden from the organisation record here -
-            // mailshot links (event invitations, un-subscribe) must always point back to
-            // the site actually sending the email, regardless of which group's list the
-            // mailshot belongs to. Only the group's own branding (logo/colours/header
-            // text) is per-group; the domain is always this installation's own.
-            if (!empty($item->email_header)) {
-                $setup->email_header = $item->email_header;
+        if (is_null($item)) {
+            if ($this->batch_mode) {
+                $message = 'Email setup not found for code ' . $code . ' - using component defaults';
+                $this->messages[] = $message;
+                return $setup;
+            } else {
+Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
+                return false;
             }
-            // logo/logo_align are deliberately NOT overridden from the organisation
-            // record - the logo is now a single, installation-wide setting sourced from
-            // com_ra_tools's own component config, not per-group.
-            if (!empty($item->colour_header)) {
-                $setup->colour_header = $item->colour_header;
-            }
-            if (!empty($item->colour_body)) {
-                $setup->colour_body = $item->colour_body;
-            }
-            if (!empty($item->colour_footer)) {
-                $setup->colour_footer = $item->colour_footer;
-            }
+        }
+
+        $setup->setup_source = 'Organisation table';
+        $setup->setup_code = $item->code;
+        // website is deliberately NOT overridden from the organisation record here -
+        // mailshot links (event invitations, un-subscribe) must always point back to
+        // the site actually sending the email, regardless of which group's list the
+        // mailshot belongs to. Only the group's own branding (logo/colours/header
+        // text) is per-group; the domain is always this installation's own.
+        if (!empty($item->logo)) {
+            $setup->logo_file = $item->logo;
+        }
+        if (!empty($item->logo_align)) {
+            $setup->logo_align = $item->logo_align;
+        }
+        if (!empty($item->colour_body)) {
+            $setup->colour_body = $item->colour_body;
+        }
+        if (!empty($item->colour_header)) {
+            $setup->colour_header = $item->colour_header;
+        }
+        if (!empty($item->colour_body)) {
+            $setup->colour_body = $item->colour_body;
+        }
+        if (!empty($item->colour_footer)) {
+            $setup->colour_footer = $item->colour_footer;
         }
 
         return $setup;
@@ -851,7 +867,7 @@ class Mailhelper {
 //        echo $sql;
 //        $this->toolsHelper->showSql($sql);
 //        die;
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
         $db->setQuery($sql);
         $db->execute();
@@ -1215,10 +1231,10 @@ class Mailhelper {
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
         $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');
 
-        // buildMessage() deliberately excludes the footer (list footer + component
-        // email_footer text) - sendEmails() appends it per-recipient along with a
-        // personalised un-subscribe link. A draft send has no real subscriber/token to
-        // build that link for, so the footer text is shown without it.
+        // buildMessage() deliberately excludes the footer (list footer + system_footer
+        // text) - sendEmails() appends it per-recipient along with a personalised
+        // un-subscribe link. A draft send has no real subscriber/token to build that
+        // link for, so the footer text is shown without it.
         $full_message = $mailshot_body . '</div>' . $this->footer . '</div></body></html>';
 
         $count = 0;
@@ -1420,13 +1436,13 @@ class Mailhelper {
         $current_email = '';
         foreach ($subscribers as $subscriber) {
             try {
-                $attempt_count++;
-                $this->toolsHelper->createLog(
-                        'RA Mailman',
-                        '13',
-                        $mailshot_id,
-                        'Processing ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
-                );
+//                $attempt_count++;
+//                $this->toolsHelper->createLog(
+//                        'RA Mailman',
+//                        '13',
+//                        $mailshot_id,
+//                        'Processing ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email//
+//                );
                 if ($this->isMailshotCancelled($mailshot_id)) {
                     $message = 'Mailshot "' . $item->title . '" was cancelled while dispatch was in progress. Sending stopped.';
                     $this->toolsHelper->createLog('RA Mailman', '27', $mailshot_id, $message);
@@ -1458,28 +1474,34 @@ class Mailhelper {
                 }
 
                 $current_email = $subscriber->email;
-                $this->toolsHelper->createLog(
-                        'RA Mailman',
-                        '15',
-                        $mailshot_id,
-                        'Encoding ' . $subscriber->subscription_id . ' for event ' . $item->event_id
-                );
+//                $this->toolsHelper->createLog(
+//                        'RA Mailman',
+//                        '15',
+//                        $mailshot_id,
+//                        'Encoding ' . $subscriber->subscription_id . ' for event ' . $item->event_id
+//                );
                 $token = $this->encode($subscriber->subscription_id, 0);
 
                 $link = $this->toolsHelper->buildLink($website_base . 'index.php?option=com_ra_mailman&task=mail_lst.processEmail&token=' . $token, 'Un-subscribe');
                 $message .= $this->footer . $link . '</div>';
                 $message .= '</body></html>';
 
-                $this->toolsHelper->createLog(
-                        'RA Mailman',
-                        '15',
-                        $mailshot_id,
-                        'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
-                );
+//                $this->toolsHelper->createLog(
+//                        'RA Mailman',
+//                        '15',
+//                        $mailshot_id,
+//                        'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
+//                );
 
                 if (!$this->toolsHelper->sendEmail($subscriber->email, $reply_to, $this->email_title, $message, $this->attachments)) {
                     $error_count++;
                     $this->toolsHelper->createLog('RA Mailman', '14', $mailshot_id, 'sendEmail returned false for ' . $subscriber->email);
+                    foreach ($this->toolsHelper->getMessages() as $smtpMessage) {
+                        $this->messages[] = $smtpMessage;
+                    }
+                    if (empty($this->toolsHelper->getMessages())) {
+                        $this->messages[] = 'Failed to send email to ' . $subscriber->email . '; no recipient record was created.';
+                    }
                     continue;
                 }
 
@@ -1513,6 +1535,7 @@ class Mailhelper {
         // We have processed the batch of emails, so update the outstanding count, and update the date_sent
         if ($error_count > 0) {
             $this->message .= ' ' . $error_count . ' Errors';
+            $this->messages[] = 'Dispatch ended with ' . $error_count . ' failed sends; batch job returned false.';
         }
         $this->updateOutstanding($mail_list_id, $outstanding);
         $this->toolsHelper->createLog('RA Mailman', '18', $mailshot_id, 'Dispatch loop finished: sent=' . $sent_count . ', errors=' . $error_count . ', outstanding=' . $outstanding);
@@ -1527,7 +1550,7 @@ class Mailhelper {
             $this->messages[] = $outstanding . ' messages still outstanding';
         }
 //        die('End of sendEmails, ' . count($this->messages) . ' messages');
-        return true;
+        return $error_count === 0;
     }
 
     public function hasMailshotDate($value) {
@@ -1684,7 +1707,7 @@ class Mailhelper {
     }
 
     private function storeMessage($mailshot_id, $mailshot_body) {
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $fields = array(

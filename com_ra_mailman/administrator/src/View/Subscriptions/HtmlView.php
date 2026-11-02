@@ -92,8 +92,8 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             $childBar = $dropdown->getChildToolbar();
 
             if (isset($this->items[0]->state)) {
-                $childBar->publish('subscriptions.publish')->listCheck(true);
-                $childBar->unpublish('subscriptions.unpublish')->listCheck(true);
+                $childBar->publish('subscriptions.publish', 'Subscribe')->listCheck(true);
+                $childBar->unpublish('subscriptions.unpublish', 'Unsubscribe')->listCheck(true);
 //                $childBar->archive('subscriptions.archive')->listCheck(true);
 //            } elseif (isset($this->items[0])) {
 //                // If this component does not use state then show a direct delete button as we can not trash

@@ -1,10 +1,5 @@
 <?php
 /**
- * @version    4.4.13
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 29/08/23 CB remove back button
  * 06/10/23 CB no link for select list if profile not present
  * 28/10/24 CB show requireReset
@@ -12,7 +7,8 @@
  * 12/02/25 CB eliminate use of getIdentity
  * 17/02/25 CB eliminate code for re-ordering, use this->user
  * 21/02/25 CB correct column heading for Pref Name
- *  06/08/25 CB replace u. with a. (for compatibility with ToolsHelper:search
+ * 06/08/25 CB replace u. with a. (for compatibility with ToolsHelper:search
+ * 02/11/26 CB allow update of user even if Blocked
  *
  */
 // No direct access
@@ -119,7 +115,7 @@ $listDirn = $this->state->get('list.direction');
                                 $display_name = $this->escape($item->preferred_name);
                             }
 
-                            if (($canEdit) AND ($item->block == 0)) {
+                            if ($canEdit)  {
                                 echo '<a href="';
                                 if ($item->id == 0) {
                                     $target = 'index.php?option=com_ra_mailman&task=profile.create&id=' . (int) $item->user_id;

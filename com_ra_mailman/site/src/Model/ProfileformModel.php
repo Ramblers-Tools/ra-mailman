@@ -1,11 +1,7 @@
 <?php
 
 /**
- * @version    4.5.7
- * @package    com_ra_mailman
- * @author     Charlie Bigley <charlie@bigley.me.uk>
- * @copyright  2025 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
+ * 19/10/26 CB Correct spelling of Mailhelper
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Model;
@@ -22,7 +18,7 @@ use \Joomla\CMS\MVC\Model\FormModel;
 use \Joomla\CMS\Object\CMSObject;
 use \Joomla\CMS\Helper\TagsHelper;
 use \Joomla\CMS\User\CurrentUserInterface;
-use Ramblers\Component\Ra_mailman\Site\Helpers\MailHelper;
+use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\PersonHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 

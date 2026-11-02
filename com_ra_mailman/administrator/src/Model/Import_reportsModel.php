@@ -3,6 +3,7 @@
 /**
  * 02/06/25 CB Created
  * 28/09/26 CB num_records
+ * 19/10/26 CB CB filter by group if not full_version
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -120,6 +121,11 @@ class Import_reportsModel extends ListModel {
      * @since   1.0.4
      */
     protected function getListQuery() {
+        // See if we are running the full version
+        $toolsHelper = new ToolsHelper;
+        $mailHelper = new MailHelper;
+        $group = $mailHelper->getDefaultGroup();
+
         // Create a new query object.
         $query = $this->_db->getQuery(true);
 
@@ -137,6 +143,10 @@ class Import_reportsModel extends ListModel {
         $query->leftJoin($this->_db->qn('#__ra_profiles') . ' AS `p` ON p.id = a.user_id');
         $query->leftJoin($this->_db->qn('#__ra_mail_lists') . ' AS `l` ON l.id = a.list_id');
 
+        // If not running the full version and the user is not a superuser, filter by group
+        if (($group !== 'N') AND ($toolsHelper->isSuperuser() === false)) {
+            $query->where('l.group_code=' . $this->_db->quote($group));
+        }
         // Filter by list
         $list_id = $this->getState('filter.list_id');
         if ($list_id != '') {

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<form>
+<form addfieldprefix="Ramblers\Component\Ra_tools\Site\Field">
   <fieldset
     addfieldprefix="Ramblers\Component\Ra_tools\Administrator\Field"
     addruleprefix="Ramblers\Component\Ra_tools\Administrator\Rule"

@@ -29,6 +29,7 @@ use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Router\Route;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
@@ -131,7 +132,7 @@ class MailshotController extends FormController {
         $id = $objApp->input->getInt('id', 0);
         $menu_id = $objApp->input->getInt('Itemid', 0);
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.id, a.date_sent,a.mail_list_id,a.date_sent');
@@ -213,7 +214,7 @@ class MailshotController extends FormController {
         $list_id = $objApp->input->getInt('list_id', 0);
         $menu_id = $objApp->input->getInt('Itemid', 0);
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.id, a.date_sent');

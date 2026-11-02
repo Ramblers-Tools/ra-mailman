@@ -85,8 +85,8 @@ class ProfileController extends FormController {
         echo '<h2>Welcome to MailMan ' . $item->preferred_name . '</h2>';
         echo '<p>' . $params->get('welcome_message') . '</p>';
 
-        echo '<p>Please authenticate yourself by requesting a Password reset ';
-        echo $this->toolsHelper->standardButton('Go', 'index.php?option=com_users&view=reset&Itemid=');
+//        echo '<p>An Administrator will check your details and approve your account. You will receive an email when this has been done.</p>';
+//        echo $this->toolsHelper->standardButton('Go', 'index.php?option=com_users&view=reset&Itemid=');
         echo '<p>';
 
         $sql = 'SELECT l.group_code, l.name, g.name AS group_name ';
@@ -100,8 +100,7 @@ class ProfileController extends FormController {
             echo 'There may be other newsletters that interest you, you can manage  ';
             echo 'these after you have changed your password and successfully logged on</p>';
         }
-        // Could show button fopr password reset
-        // $target = 'index.php?option=com_users&view=reset';
+
         echo $this->toolsHelper->backButton('index.php');
     }
 

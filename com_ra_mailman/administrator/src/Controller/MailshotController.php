@@ -34,6 +34,7 @@ use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Toolbar\ToolbarHelper;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
@@ -54,7 +55,7 @@ class MailshotController extends FormController {
 
     public function __construct(array $config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
         parent::__construct($config, $factory);
-        $this->db = Factory::getDbo();
+        $this->db = Factory::getContainer()->get(DatabaseInterface::class);
         $this->toolsHelper = new ToolsHelper;
         $this->app = Factory::getApplication();
         $this->user = $this->app->getSession()->get('user');
@@ -216,7 +217,7 @@ class MailshotController extends FormController {
 
         $user_id = (int) $this->app->input->getCmd('user_id', 0);
         ToolBarHelper::title('Ramblers MailMan');
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.id, a.title,r.email,r.ip_address');
@@ -274,7 +275,7 @@ class MailshotController extends FormController {
         $callback = $this->app->input->getWord('callback', '');
         $user_id = $this->app->input->getInt('user_id', 0);
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.id, a.date_sent,a.mail_list_id');
@@ -368,7 +369,7 @@ class MailshotController extends FormController {
         $id = (int) $this->app->input->getCmd('id', 0);
         $list_id = (int) $this->app->input->getCmd('list_id', 0);
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.id, a.date_sent');

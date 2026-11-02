@@ -605,7 +605,8 @@ class Mailhelper {
 
 public function getEmailSetup() {
         $params = ComponentHelper::getParams('com_ra_mailman');
-        // Logo height/width/ come from com_ra_tools's own component
+        // as at 23/10/26, Logo height/width/ come from com_ra_tools component
+        // but should come from the organisation table
         $toolsParams = ComponentHelper::getParams('com_ra_tools');
 
         $setup = (object) [
@@ -670,6 +671,9 @@ Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $c
         // the site actually sending the email, regardless of which group's list the
         // mailshot belongs to. Only the group's own branding (logo/colours/header
         // text) is per-group; the domain is always this installation's own.
+        if (!empty($item->email_header)) {
+            $setup->email_header = $item->email_header;
+        }
         if (!empty($item->logo)) {
             $setup->logo_file = $item->logo;
         }
@@ -1292,7 +1296,10 @@ Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $c
             // exception and returns false) - every property read then yielded null, so every guard
             // below (still_queued, date_sent, processing_started) evaluated as "fresh mailshot" and
             // the whole subscriber list was resent from scratch on every invocation.
-            $message = 'Mailshot lookup failed for id=' . $mailshot_id . ' (' . $this->toolsHelper->error . '); send aborted';
+            $message = 'MailHelper::sendEmails: Mailshot lookup failed for id=' . $mailshot_id . ' (' . $this->toolsHelper->error . '); send aborted';
+            $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
+            $this->messages[] = $message;
+            $message = 'sql=' . $sql;
             $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
             $this->messages[] = $message;
             return false;
@@ -1736,8 +1743,6 @@ Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $c
         $toolsHelper = new ToolsHelper;
 //        $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
 //        $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
-//        $db = Factory::getDbo();
-//        $query = $db->getQuery(true);
 
         $sql = 'SELECT u.name, u.email, l.name as `list`, l.group_code, ';
         $sql .= 'a.list_id, a.user_id, a.record_type, a.method_id, a.expiry_date, ';

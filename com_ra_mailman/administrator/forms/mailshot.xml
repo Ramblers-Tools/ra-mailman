@@ -52,7 +52,7 @@
         <field
            name="contact_id"
            type="sql"
-           label="Normally, when a recipient replies to a Mailshot it will go the the Author of the
+           label="Normally, when a recipient replies to a Mailshot it will go the the Owner of the
            list, but you can select a different Contact"
            query="
                SELECT u.id AS value, c.name AS text

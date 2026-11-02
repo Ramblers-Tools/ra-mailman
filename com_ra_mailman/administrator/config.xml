@@ -79,25 +79,25 @@
     </fieldset>
     <fieldset label="Registration" name="registration">
         <field name="welcome_message"
-               maxlength="255" 
-               filter="safehtml" 
-               type="text" 
-               label="Welcome message" 
-               description="Message to be shown after successful registration" 
-               default="Thank you for registering."/> 
+            rows="5"
+            filter="safehtml" 
+            type="textarea" 
+            label="Welcome message" 
+            description="Message to be shown after successful registration" 
+            default="Thank you for registering."/> 
         <field name="email_new_user" 
-               type="user" 
-               label="User to be notified" 
-               description="User to be notified when new User signs up" 
-               hint="webmaster@....."/>
+            type="user" 
+            label="User to be notified" 
+            description="User to be notified when new User signs up" 
+            hint="webmaster@....."/>
     </fieldset>
     <fieldset name="dataload" label="Dataload">
         <field name="max_errors"
-                type="text"
-                filter="int"
-                label="Max Errors" 
-                description="Maximum error when loading Users from a file" 
-                required="true"
+            type="text"
+            filter="int"
+            label="Max Errors" 
+            description="Maximum error when loading Users from a file" 
+            required="true"
                 default="50"/> 
         <field
             name="abbreviate_name"
@@ -146,7 +146,7 @@
                 default="100"/>    
             <field name="mailshot_send_message" 
                filter="safehtml" 
-               type="textarea" 
+               type="textarea"
                default="Mailshot has been logged for dispatch and will be processed shortly" 
                label="Send message" 
                required="true"

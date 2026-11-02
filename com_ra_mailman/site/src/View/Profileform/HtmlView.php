@@ -1,11 +1,7 @@
 <?php
 
 /**
- * @version    4.5.7
- * @package    com_ra_mailman
- * @author     Charlie Bigley <charlie@bigley.me.uk>
- * @copyright  2025 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
+ * 26/10/26 CB change message if self-registration is switched off on RA Tools config
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\View\Profileform;
@@ -48,7 +44,7 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
 
         if ((int) $this->user->id === 0
                 && !ComponentHelper::getParams('com_ra_tools')->get('allow_self_registration', 1)) {
-            $app->enqueueMessage('Self-registration is not currently available.', 'error');
+            $app->enqueueMessage('Self-registration is not available, please contact the Membership Secretary.', 'error');
             return;
         }
 

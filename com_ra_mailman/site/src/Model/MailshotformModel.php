@@ -242,8 +242,12 @@ class MailshotformModel extends FormModel implements CurrentUserInterface {
         }
         // Set value of list_id from input for use in save
         $form->setFieldAttribute('mail_list_id', 'default', $list_id);
-        // Set value of event_id from input
-        $form->setFieldAttribute('event_id', 'default', $event_id);
+
+        // invitation_preamble is not stored separately; an event_id means the
+        // mailshot has an invitation and should therefore display Yes.
+        if ((int) $form->getValue('event_id') > 0) {
+            $form->setValue('invitation_preamble', null, '1');
+        }
 
         // Hide audit fields for new record
         $id = $form->getvalue('id');

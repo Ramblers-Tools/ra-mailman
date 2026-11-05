@@ -1,11 +1,6 @@
 <?php
 
 /**
- * @version    4.6.0
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 10/12/23 CB check username before creating a new user
  * 19/02/24 CB correction for creating Profile records - don't pass parameters
  * 05/11/24 CB lookup real name
@@ -13,6 +8,7 @@
  * 07/07/25 CB use createUserDirect, not createUser
  * 25/11/25 CB save preferred_name
  * 06/12/25 CB update fields requireReset and block, delete comment
+ * 04/11/26 CB use container DatabaseInterface for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -141,27 +137,6 @@ class ProfileModel extends AdminModel {
      * @since   4.0.0
      */
     public function getItem($pk = null) {
-        /*
-          $db = $this->getDbo();
-          $query = $db->getQuery(true)
-          ->select('a.*')
-          ->select('u.name AS real_name,u.email, u.requireReset,u.block')
-          ->from($db->quoteName('#__ra_profiles', 'a'))
-          ->leftjoin($db->quoteName('#__users', 'u') . ' ON ' . $db->quoteName('u.id') . ' = ' . $db->quoteName('a.id'))
-          ->where($db->quoteName('a.id') . ' = ' . (int) $pk);
-          echo $db->replacePrefix($query) . '<br>';
-          $db->setQuery($query);
-
-          $item = $db->loadObject;
-          if ($item = parent::getItem($pk)) {
-          if (isset($item->params)) {
-          $item->params = json_encode($item->params);
-          }
-          }
-          var_dump($item);
-          die;
-          return $item;
-         */
         if ($item = parent::getItem($pk)) {
             if (isset($item->params)) {
                 $item->params = json_encode($item->params);
@@ -326,8 +301,8 @@ class ProfileModel extends AdminModel {
 
             if (!$personHelper->profileExistsForUser($user_id)) {
                 throw new \RuntimeException(
-                        'The RA profile placeholder was not created for the new user. '
-                        . 'Ensure the RA Tools user-profile plugin is installed and enabled.'
+                                'The RA profile placeholder was not created for the new user. '
+                                . 'Ensure the RA Tools user-profile plugin is installed and enabled.'
                 );
             }
 

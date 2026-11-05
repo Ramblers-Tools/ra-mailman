@@ -1,12 +1,8 @@
 <?php
 
 /**
- * @version    4.5.8
- * @package    com_ra_mailman
- * @author     Barlie Chigley <charlie@bigley.me.uk>
- * @copyright  2025 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 11/11/25 CB Created
+ * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Recipients;
@@ -20,7 +16,6 @@ use \Joomla\CMS\Helper\ContentHelper;
 use \Joomla\CMS\Toolbar\Toolbar;
 use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 
 /**
@@ -59,7 +54,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
 
         $this->addToolbar();
 
-        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 
@@ -74,8 +68,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         $app = Factory::getApplication();
 // Suppress menu side panel
         $app->input->set('hidemainmenu', true);
-// Set sidebar action
-        Sidebar::setAction('index.php?option=com_ra_mailman&view=mail_lsts');
 //        $state = $this->get('State');
         $this->canDo = ContentHelper::getActions('com_ra_mailman');
         // find which layout is in use

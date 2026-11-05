@@ -5,6 +5,7 @@
  * 18/10/26 CB Created from com_ra_mailman script
  *             Deleted schema updates
  * 21/10/26 CB Updated minimumToolsVersion to 4.0.14
+ * 05/11/26 CB Added Schemahelper and ToolsHelper
  */
 \defined('_JEXEC') or die;
 
@@ -16,86 +17,23 @@ use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Filesystem\File;
 use Joomla\Filesystem\Folder;
+use Ramblers\Component\Ra_tools\Site\Helpers\SchemaHelper;
+use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 class Pkg_Ra_mailmanInstallerScript {
 
+    private $db;   
+    private $dbVersionCache = [];
     private $minimumJoomlaVersion = '5.6';
     private $minimumPHPVersion = JOOMLA_MINIMUM_PHP;
     private $minimumPackagePHPVersion = '8.3.36';
     private $minimumToolsVersion = '4.0.14';
     private $reconfigure_message;
-    private $current_version;
-    private $version_required;
-    private $dbPrefix;
-    private $db;
+    private $current_version;   
+    private $schemaHelper; 
+    private $toolsHelper;
+    private $version_required;  
     private $versionCache = [];
-    private $dbVersionCache = [];
-
-
-    function buildButton($url, $text, $newWindow = 0, $colour = '') {
-        if ($colour == '') {
-            $colour = 'sunrise';
-        }
-        $class = 'link-button ' . $colour;
-        $q = chr(34);
-        $out = "<a class=" . $q . $class . $q;
-        $out .= " href=" . $q . $url . $q;
-        $out .= " target =" . $q . "_self" . $q;
-        $out .= ">";
-        $out .= $text;
-        $out .= "</a>";
-        return $out;
-    }
-
-    function checkColumn($table, $column, $mode, $details = '') {
-//  $mode = A: add the field, using data supplied in $details
-//  $mode = U: update the field (keeping name the same), using $details
-//  $mode = D: delete the field
-//  Safe to re-run: checks information_schema first
-
-        $count = $this->checkColumnExists($table, $column);
-        $table_name = $this->dbPrefix . $table;
-        if (($mode == 'A') AND ($count == 1)
-                OR ($mode == 'D') AND ($count == 0)) {
-            return true;
-        }
-        if (($mode == 'U') AND ($count == 0)) {
-            return $this->fail('Installer could not update missing field ' . $table_name . '.' . $column . '.');
-        }
-
-        $sql = 'ALTER TABLE ' . $table_name . ' ';
-        if ($mode == 'A') {
-            $sql .= 'ADD ' . $column . ' ';
-            $sql .= $details;
-        } elseif ($mode == 'D') {
-            $sql .= 'DROP ' . $column;
-        } elseif ($mode == 'U') {
-            $sql .= 'CHANGE ' . $column . ' ' . $column . ' ';
-            $sql .= $details;
-        }
-        $this->message($sql);
-        try {
-            $this->executeCommand($sql);
-        } catch (\RuntimeException $exception) {
-            return $this->fail('Installer failed to alter database table ' . $table_name . ': ' . $exception->getMessage());
-        }
-
-        $this->message('Success for ' . $table_name . '.' . $column);
-        return true;
-    }
-
-    private function checkColumnExists($table, $column) {
-        $config = Factory::getApplication()->getConfig();
-        $database = $config->get('db');
-        $this->dbPrefix = $config->get('dbprefix');
-
-        $sql = 'SELECT COUNT(COLUMN_NAME) ';
-        $sql .= "FROM information_schema.COLUMNS ";
-        $sql .= "WHERE TABLE_SCHEMA='" . $database . "' AND TABLE_NAME ='" . $this->dbPrefix . $table . "' ";
-        $sql .= "AND COLUMN_NAME='" . $column . "'";
-
-        return (int) $this->getValue($sql);
-    }
 
     private function deleteFile($target) {
         $file = JPATH_ROOT . $target;
@@ -236,10 +174,10 @@ class Pkg_Ra_mailmanInstallerScript {
 
         // Runs on every install/update and is safe to re-run. The 5.1.2 update SQL also
         // adds contact_id, but this covers sites where that file did not run.
-        if ($this->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ')) {
+        if ($this->schemaHelper->checkColumn('ra_mail_shots', 'contact_id', 'A', 'INT NULL AFTER attachment; ')) {
             // Older versions stored the contact's email in reply_to; carry it across so
             // existing mailshots keep the contact that was chosen
-            if ($this->checkColumnExists('ra_mail_shots', 'reply_to')) {
+            if ($this->schemaHelper->checkColumnExists('ra_mail_shots', 'reply_to')) {
                 try {
                     $this->executeCommand('UPDATE `#__ra_mail_shots` AS s '
                             . 'INNER JOIN `#__users` AS u ON u.email = s.reply_to '
@@ -251,7 +189,9 @@ class Pkg_Ra_mailmanInstallerScript {
         } else {
             $this->message('Mailshot Contact override will not be saved until ra_mail_shots.contact_id is added', 'warning');
         }
-
+//        if (version_compare($this->original_version, '5.1.7', 'le')) {
+//            $this->stoolsHelper->checkUsergroup( 'com_ra_members',);
+//        }
         $componentVersion = $this->getVersion('com_ra_mailman') ?? 'not recorded';
         echo 'com_ra_mailman is now at ' . $componentVersion;
         if ($this->reconfigure_message == true) {
@@ -259,8 +199,8 @@ class Pkg_Ra_mailmanInstallerScript {
         }
 
         echo '<b>Useful links</b><br>'
-                . $this->buildButton('index.php?option=com_ra_tools&view=dashboard', 'Dashboard', false, 'granite') . '<br>'
-                . $this->buildButton('index.php?option=com_config&view=component&component=com_ra_mailman', 'Configure');
+                . $this->toolsHelper->buildButton('index.php?option=com_ra_tools&view=dashboard', 'Dashboard', false, 'granite') . '<br>'
+                . $this->toolsHelper->buildButton('index.php?option=com_config&view=component&component=com_ra_mailman', 'Configure');
         return true;
     }
 
@@ -281,7 +221,8 @@ class Pkg_Ra_mailmanInstallerScript {
         if (!ComponentHelper::isEnabled('com_ra_tools', true)) {
             return $this->fail('RA Mailman requires the enabled component com_ra_tools.');
         }
-
+        $this->toolsHelper = new ToolsHelper();
+        $this->schemaHelper = new SchemaHelper;
         $tools_version = $this->getVersion('com_ra_tools');
         if ($tools_version !== null && version_compare($tools_version, $this->minimumToolsVersion, 'ge')) {
             $this->message('Version ' . $this->minimumToolsVersion . ' of com_ra_tools required; version ' . $tools_version . ' found');

@@ -1,12 +1,8 @@
 <?php
 
 /**
- * @version    4.4.1
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 02/06/25 CB Created
+ * 05/11/26 CB Delete referernces to SidebarHelper for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Import_reports;
@@ -20,7 +16,6 @@ use \Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use \Joomla\CMS\Toolbar\Toolbar;
 use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
 use \Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
@@ -61,7 +56,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         $this->user = $this->getCurrentUser();
         $this->addToolbar();
 
-        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 
@@ -106,9 +100,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
                 ->onclick('return false')
                 ->listCheck(false);
         ToolbarHelper::cancel('import_reports.cancel', 'Return to Dashboard');
-
-        // Set sidebar action
-        Sidebar::setAction('index.php?option=com_ra_mailman&view=import_reports');
     }
 
     /**

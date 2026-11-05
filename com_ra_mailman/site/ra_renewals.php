@@ -11,6 +11,7 @@
  * 08/02/23 CB Created
  * 19/08/23 CB copied from cli
  * 05/01/24 CB extra parameter to logMessage
+ * 04/11/26 CB probably not used anywhere - use container DatabaseInterface for J6 compatibility
  */
 
 /**
@@ -23,6 +24,7 @@ use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 require_once 'framework.inc.php';
 
 use Joomla\CMS\Factory;
+use Joomla\Database\DatabaseInterface;
 
 class ra_renewals extends JApplicationCli {
 
@@ -53,7 +55,6 @@ class ra_renewals extends JApplicationCli {
 
         // log the fact that the batch program has successfully been called
         $this->logMessage("R1", 1, "ra_renewals.php Started");
-
 
 // initialise the Helper classes
         $Mailhelper = new Mailhelper();
@@ -101,7 +102,7 @@ class ra_renewals extends JApplicationCli {
     }
 
     function logMessage($record_type, $ref, $message) {
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
 
 // Create a new query object.
         $query = $db->getQuery(true);
@@ -126,5 +127,4 @@ $cli = JApplicationCli::getInstance('ra_renewals');
 JFactory::$application = $cli;
 
 $cli->doExecute();
-
 

@@ -1,13 +1,9 @@
 <?php
 
 /**
- * @version    4.5.3
- * @package    com_ra_mailman
- * @author     Charlie Bigley <charlie@bigley.me.uk>
- * @copyright  2025 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 17/07/25 CB regenerated, adjust buttons, use ContentHelp and CurrentUserInterface
  * 25/08/25 CB Help
+ * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Subscriptions;
@@ -22,7 +18,6 @@ use \Joomla\CMS\Toolbar\Toolbar;
 use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
 use \Joomla\CMS\Form\Form;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 
 /**
@@ -60,7 +55,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
 
         $this->addToolbar();
 
-        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 
@@ -72,8 +66,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
      * @since   4.4.11
      */
     protected function addToolbar() {
-        // Set sidebar action
-        Sidebar::setAction('index.php?option=com_ra_mailman&view=subscriptions');
         $state = $this->get('State');
         $canDo = ContentHelper::getActions('com_ra_mailman');
 

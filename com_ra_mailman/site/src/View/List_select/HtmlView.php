@@ -1,14 +1,10 @@
 <?php
 
 /**
- * @version    2.1.4
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 13/02/25 CB Replace getIdentity with $this->getCurrentUser();
  * 18/02/25 CB define $this->objHelper
  * 07/07/25 CB set up $this->group_code
+ * 05/11/26 CB Delete referernces to SidebarHelper for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\View\List_select;
@@ -24,7 +20,6 @@ use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
 use \Joomla\CMS\Form\Form;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 use \Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
@@ -96,7 +91,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
 
         $this->addToolbar();
 
-        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 
@@ -120,9 +114,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         ToolbarHelper::unpublish('subscriptions.unsubscribe', 'Unsubscribe', true);
         ToolbarHelper::cancel('user_select.cancel', 'JTOOLBAR_CANCEL');
         $state = $this->get('State');
-
-        // Set sidebar action
-        //       Sidebar::setAction('index.php?option=com_ra_mailman&view=user_select');
     }
 
     /**

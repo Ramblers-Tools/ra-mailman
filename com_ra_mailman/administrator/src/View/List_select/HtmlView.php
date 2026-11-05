@@ -1,14 +1,10 @@
 <?php
 
 /**
- * @version    4.5.3
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 08/04/24 CB set up $this->group_code
  * 29/10/24 CB show message if password reset required
  * 03/09/25 CB don't use back button
+ * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\List_select;
@@ -24,7 +20,6 @@ use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
 use \Joomla\CMS\Form\Form;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 use \Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
@@ -91,7 +86,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             throw new \Exception(implode("\n", $errors));
         }
         $this->addToolbar();
-        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 

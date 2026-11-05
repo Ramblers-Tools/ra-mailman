@@ -90,6 +90,7 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         $this->mailshot_send_message = $params->get('mailshot_send_message', 'Waiting for batch job');
         $this->mailHelper = new MailHelper;
         $this->toolsHelper = new ToolsHelper;
+        $this->addToolbar();
         parent::display($tpl);
     }
 

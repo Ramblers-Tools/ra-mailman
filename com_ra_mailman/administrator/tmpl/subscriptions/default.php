@@ -2,6 +2,7 @@
 /**
  * 17/07/25 CB regenerated, but use registerAndUseStyle
  * 21/09/26 Cb show audit even if unpublished
+ * 08/11/26 CB show Access
  */
 // No direct access
 defined('_JEXEC') or die;
@@ -61,6 +62,7 @@ if (!empty($saveOrder)) {
 
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Real name', 'u.name', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Method', 'm.name', $listDirn, $listOrder) . '</th>';
+                            echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Access', 'ma.name', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Last updated', 'a.modified', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Expires', 'a.expiry_date', $listDirn, $listOrder) . '</th>';
                             echo '<th>Audit</th>';
@@ -103,7 +105,7 @@ if (!empty($saveOrder)) {
                                 echo '</td>';
                                 echo '<td>' . $item->subscriber . '</td>';
                                 echo '<td>' . $item->Method . '</td>';
-
+                                echo '<td>' . $item->Access . '</td>';
                                 echo '<td>';
                                 if (($item->modified != '') AND ($item->modified != '0000-00-00 00:00:00')) {
                                     echo $item->modified;

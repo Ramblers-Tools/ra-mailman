@@ -1,16 +1,12 @@
 <?php
 
 /**
- * @version    4.6.1
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 08/08/23 CB if home_group_only, include message in title
  * 07/09/23 CB as button with number of records
  * 09/03/25 CB direct "subscribe" to user_select Controller, not Subscriptions
  * 25/08/25 CB Help
  * 12/02/26 CB change page title
+ * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\User_select;
@@ -26,7 +22,6 @@ use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
 use \Joomla\CMS\Form\Form;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 use \Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
@@ -96,7 +91,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
 
         $this->addToolbar();
 
-//        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 
@@ -110,8 +104,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
     protected function addToolbar() {
         // Suppress menu side panel
         Factory::getApplication()->input->set('hidemainmenu', true);
-        // Set sidebar action
-        Sidebar::setAction('index.php?option=com_ra_mailman&view=user_select');
         $title = 'Manage ';
         if ($this->record_type == 1) {
             $title .= 'Subscriptions';

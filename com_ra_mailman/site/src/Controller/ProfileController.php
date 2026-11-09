@@ -72,6 +72,7 @@ class ProfileController extends FormController {
     public function showWelcome() {
 // Shows a welcome message after a User has self-registered
 // (Would be better if displayed as a View)
+        $app = Factory::getApplication();
         $user_id = Factory::getApplication()->input->getInt('user_id', '0');
         $params = ComponentHelper::getParams('com_ra_mailman');
         $welcome_message = $params->get('welcome_message');
@@ -82,8 +83,28 @@ class ProfileController extends FormController {
         $sql .= 'WHERE u.id=' . $user_id;
         $item = $this->toolsHelper->getItem($sql);
 
-        echo '<h2>Welcome to MailMan ' . $item->preferred_name . '</h2>';
-        echo '<p>' . $params->get('welcome_message') . '</p>';
+        if (!$item) {
+            throw new \RuntimeException('Unable to find the newly registered user.', 404);
+        }
+
+        $welcomeEmailKey = 'com_ra_mailman.welcome_email_sent.' . $user_id;
+        $session = $app->getSession();
+
+        if ($user_id > 0 && !$session->get($welcomeEmailKey, false) && filter_var($item->email, FILTER_VALIDATE_EMAIL)) {
+            $siteName = (string) $app->get('sitename');
+            $subject = 'Welcome to MailMan at ' . $siteName;
+            $body = '<p>Hello ' . htmlspecialchars((string) $item->preferred_name, ENT_QUOTES, 'UTF-8') . ',</p>'
+                    . $welcome_message;
+
+            if ($this->toolsHelper->sendEmail($item->email, '', $subject, $body)) {
+                $session->set($welcomeEmailKey, true);
+            } else {
+                $app->enqueueMessage('Unable to send the MailMan welcome email.', 'warning');
+            }
+        }
+
+        echo '<h2>Welcome to MailMan ' . htmlspecialchars((string) $item->preferred_name, ENT_QUOTES, 'UTF-8') . '</h2>';
+        echo '<p>' . $welcome_message . '</p>';
 
 //        echo '<p>An Administrator will check your details and approve your account. You will receive an email when this has been done.</p>';
 //        echo $this->toolsHelper->standardButton('Go', 'index.php?option=com_users&view=reset&Itemid=');

@@ -349,6 +349,13 @@ class MailshotformModel extends FormModel implements CurrentUserInterface {
      * @since   1.0.2
      */
     public function save($data) {
+        // The event field is hidden when invitation_preamble is No, so it is
+        // omitted from the request. Clear the saved event explicitly instead
+        // of retaining the invitation selected during an earlier edit.
+        if (array_key_exists('invitation_preamble', $data) && (int) $data['invitation_preamble'] === 0) {
+            $data['event_id'] = 0;
+        }
+
         $id = (!empty($data['id'])) ? $data['id'] : (int) $this->getState('mailshot.id');
         $state = (!empty($data['state'])) ? 1 : 0;
         $list_id = $data['mail_list_id'];

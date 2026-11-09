@@ -11,6 +11,7 @@
  * 30/07/25 search for ID: using helper
  * 06/08/25 CB replace u. with a. (for compatibility with ToolsHelper:search
  * 19/10/25 CB search in email field
+ * 04/11/26 CB use container DatabaseInterface for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -24,6 +25,7 @@ use \Joomla\CMS\Factory;
 use \Joomla\CMS\Language\Text;
 use \Joomla\CMS\Helper\TagsHelper;
 use \Joomla\Database\ParameterType;
+use Joomla\Database\DatabaseInterface;
 use \Joomla\Utilities\ArrayHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
@@ -119,7 +121,7 @@ class ProfilesModel extends ListModel {
      */
     protected function getListQuery() {
         // Create a new query object.
-        $db = $this->getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $this->_db->getQuery(true);
 
         $query->select('p.id, p.state, p.home_group, p.preferred_name');

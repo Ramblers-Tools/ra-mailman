@@ -10,6 +10,7 @@
  * 22/10/24 CB comment out diagnostics
  * 12/02/25 CB replace getIdentity with getCurrentUser
  * 16/03/26 CB use defauls group if not full_version
+ * 04/11/26 CB use container DatabaseInterface for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -24,6 +25,7 @@ use \Joomla\CMS\Plugin\PluginHelper;
 use \Joomla\CMS\MVC\Model\AdminModel;
 use \Joomla\CMS\Helper\TagsHelper;
 use \Joomla\CMS\Filter\OutputFilter;
+use Joomla\Database\DatabaseInterface;
 use \Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 
 /**
@@ -243,7 +245,7 @@ class Mail_lstModel extends AdminModel {
         if (empty($table->id)) {
             // Set ordering to the last item if not set
             if (@$table->ordering === '') {
-                $db = $this->getDbo();
+                $db = Factory::getContainer()->get(DatabaseInterface::class);
                 $db->setQuery('SELECT MAX(ordering) FROM `#__ra_mail_lists`');
                 $max = $db->loadResult();
                 $table->ordering = $max + 1;
@@ -263,7 +265,7 @@ class Mail_lstModel extends AdminModel {
      */
     public function publish(&$pks, $value = 1) {
         /* this is a very simple method to change the state of each item selected */
-        $db = $this->getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
 
         $query = $db->getQuery(true);
 

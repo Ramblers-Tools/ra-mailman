@@ -1,11 +1,6 @@
 <?php
 
 /**
- * @version    4.6.4
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 22/06/23 added typealias
  * 14/11/23 CB remove reference to author_id
  * 21/11/23 CB only show mailshots where date_sent is not NULL
@@ -14,6 +9,7 @@
  * 14/08/24 CB get all fields
  * 14/11/25 CB change __ra_mailshots to __ra_mail_shots
  * 16/03/26 CB filter by group if not full_version
+ * 04/11/26 CB use container DatabaseInterface for J6 compatibility
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Model;
@@ -25,6 +21,7 @@ use \Joomla\CMS\Factory;
 use \Joomla\CMS\Language\Text;
 use \Joomla\CMS\MVC\Model\ListModel;
 use \Joomla\Component\Fields\Administrator\Helper\FieldsHelper;
+use Joomla\Database\DatabaseInterface;
 use \Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
@@ -127,11 +124,11 @@ class MailshotsModel extends ListModel {
         $group = $mailHelper->getDefaultGroup();
 
         // Create a new query object.
-        $db = $this->getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.*');
-        $query->from('`#__ra_mail_shots` AS a');  
+        $query->from('`#__ra_mail_shots` AS a');
         $query->select('mail_list.name AS `list_name`');
         $query->leftJoin($this->_db->qn('#__ra_mail_lists') . ' AS `mail_list` ON mail_list.id = a.mail_list_id');
 
@@ -192,7 +189,7 @@ class MailshotsModel extends ListModel {
                 $textValue = array();
 
                 foreach ($values as $value) {
-                    $db = $this->getDbo();
+                    $db = Factory::getContainer()->get(DatabaseInterface::class);
                     $query = $db->getQuery(true);
                     $query
                             ->select('`description`')

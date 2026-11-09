@@ -603,7 +603,7 @@ class Mailhelper {
         }
     }
 
-public function getEmailSetup() {
+    public function getEmailSetup() {
         $params = ComponentHelper::getParams('com_ra_mailman');
         // as at 23/10/26, Logo height/width/ come from com_ra_tools component
         // but should come from the organisation table
@@ -632,19 +632,18 @@ public function getEmailSetup() {
 
         However, if multiple groups are being served by the same website, customisation details are taken
         from the organisation table instead. Note that if values are not present in the table,
-        the component configuration serves as the default.
+        the component configuration serves as the default.         
         */
-        if ($this->batch_mode) {
-            $code = $this->config_group;
-            $this->toolsHelper->createLog('RA Mailman', '6', 'EmailSetup', 'Batch mode: config=' . $this->config_group);
-        } else {
-            $code = $this->getDefaultGroup();
-        }
+        // See if we are running "full version" {single group:) or
+        // if there are multiple groups
 
-        if (empty($code) || $code === 'N') {
+        $params = ComponentHelper::getParams('com_ra_mailman');
+        $full_version = $params->get('full_version', 'N');
+        if ($full_version == 'Y') {
             return $setup;
         }
 
+        // using the group code from the mailing list, get details from the Organisations table
         $sql = 'SELECT code, name, website, email_header, colour_header, colour_body, colour_footer, ';
         $sql .= 'logo, logo_align ';
         // Logo height and width should be added to the Organisation table
@@ -659,7 +658,7 @@ public function getEmailSetup() {
                 $this->messages[] = $message;
                 return $setup;
             } else {
-Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
+                Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
                 return false;
             }
         }
@@ -680,6 +679,12 @@ Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $c
         if (!empty($item->logo_align)) {
             $setup->logo_align = $item->logo_align;
         }
+//        if (!empty($item->height)) {
+//            $setup->height = $item->height;
+//        }
+//        if (!empty($item->width)) {
+//            $setup->width = $item->width;
+//        }
         if (!empty($item->colour_body)) {
             $setup->colour_body = $item->colour_body;
         }
@@ -1468,12 +1473,10 @@ Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $c
                 $message = $mailshot_body;
                 $message .= '</div>';
                 if ($item->event_id > 0) {
-                    $this->toolsHelper->createLog(
-                            'RA Mailman',
-                            '14',
-                            $mailshot_id,
-                            'Generating invitation to ' . $item->event_id . ' for user ' . $subscriber->user_id
-                    );
+//                     $this->toolsHelper->createLog(
+//                            'RA Mailman', '14', $mailshot_id,
+//                            'Generating invitation to ' . $item->event_id . ' for user ' . $subscriber->user_id
+//                    );
                     $message .= '<div style="background: ' . $setup->colour_body;
                     $message .= '; padding-top: 10px; ">';
                     $message .= $this->bookingHelper->generateInvitation($item->event_id, $subscriber->user_id);
@@ -1526,7 +1529,7 @@ Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $c
                 if ($outstanding % 10 == 0 || $outstanding == 0) {
                     $this->updateOutstanding($mail_list_id, $outstanding);
                 }
-                $this->toolsHelper->createLog('RA Mailman', '16', $mailshot_id, 'Recipient recorded for ' . $subscriber->email . ', outstanding=' . $outstanding);
+     //           $this->toolsHelper->createLog('RA Mailman', '16', $mailshot_id, 'Recipient recorded for ' . $subscriber->email . ', outstanding=' . $outstanding);
 
                 if ($sent_count >= $max_emails) {
                     $this->toolsHelper->createLog('RA Mailman', '17', $mailshot_id, 'Dispatch paused after reaching max_emails=' . $max_emails);

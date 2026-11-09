@@ -9,6 +9,7 @@
  * 09/06/23 CB added subscribe/unsubscribe
  * 06/01/24 CB cancelSubscription
  * 17/11/24 CB showDetails
+ * 04/11/26 CB remove obsolete getDbo reference
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -39,7 +40,6 @@ class SubscriptionController extends FormController {
 
     public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
         parent::__construct($config, $factory);
-        //        $this->db = Factory::getDbo();
         $this->objHelper = new ToolsHelper;
         $this->app = Factory::getApplication();
         $wa = $this->app->getDocument()->getWebAssetManager();

@@ -4,6 +4,7 @@
  * 17/07/25 CB regenerated, adjust buttons, use ContentHelp and CurrentUserInterface
  * 25/08/25 CB Help
  * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
+ * 08/11/26 CB hide main menu for toolbar view
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Subscriptions;
@@ -12,6 +13,7 @@ namespace Ramblers\Component\Ra_mailman\Administrator\View\Subscriptions;
 defined('_JEXEC') or die;
 
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
+use Joomla\CMS\Factory;
 use Joomla\CMS\Helper\ContentHelper;
 use \Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use \Joomla\CMS\Toolbar\Toolbar;
@@ -43,6 +45,10 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
      */
     public function display($tpl = null) {
         $this->state = $this->get('State');
+        Factory::getApplication()->setUserState(
+                'com_ra_mailman.edit.subscription.filter_search',
+                (string) $this->getState('filter.search', '')
+        );
         $this->items = $this->get('Items');
         $this->pagination = $this->get('Pagination');
         $this->filterForm = $this->get('FilterForm');
@@ -66,12 +72,18 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
      * @since   4.4.11
      */
     protected function addToolbar() {
+        // Suppress menu side panel
+        Factory::getApplication()->input->set('hidemainmenu', true);        
         $state = $this->get('State');
         $canDo = ContentHelper::getActions('com_ra_mailman');
 
         ToolbarHelper::title(Text::_('Mail Subscriptions'), "generic");
 
         $toolbar = Toolbar::getInstance('toolbar');
+
+        if ($canDo->get('core.create')) {
+            $toolbar->addNew('subscription.add')->text('New Subscription');
+        }
 
         if ($canDo->get('core.edit.state')) {
             $dropdown = $toolbar->dropdownButton('status-group')

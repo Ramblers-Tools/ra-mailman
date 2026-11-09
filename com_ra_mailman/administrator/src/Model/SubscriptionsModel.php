@@ -10,6 +10,7 @@
  * 27/07/25 CB reinstate search using ToolsHelper
  * 30/07/25 search for ID: using helper
  * 16/03/26 CB filter by group if not full_version
+ * 08/11/26 CB show Access
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -51,7 +52,7 @@ class SubscriptionsModel extends ListModel {
                 'p.preferred_name',
                 'm.name',
                 'a.state',
-                'a.modified',
+                'ma.name',
                 'a.expiry_date',
                 'list_id',
                 'method_id',

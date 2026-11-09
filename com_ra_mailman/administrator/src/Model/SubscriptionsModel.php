@@ -10,6 +10,7 @@
  * 27/07/25 CB reinstate search using ToolsHelper
  * 30/07/25 search for ID: using helper
  * 16/03/26 CB filter by group if not full_version
+ * 08/11/26 CB show Access
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Model;
@@ -51,7 +52,7 @@ class SubscriptionsModel extends ListModel {
                 'p.preferred_name',
                 'm.name',
                 'a.state',
-                'a.modified',
+                'ma.name',
                 'a.expiry_date',
                 'list_id',
                 'method_id',
@@ -143,6 +144,7 @@ class SubscriptionsModel extends ListModel {
         $query->innerJoin($this->_db->qn('#__ra_mail_methods') . ' AS `m` ON m.id = a.method_id');
         $query->innerJoin($this->_db->qn('#__users') . ' AS `u` ON u.id = a.user_id');
         $query->leftJoin($this->_db->qn('#__ra_profiles') . ' AS `p` ON p.id = a.user_id');
+        $query->where("(p.state = 1 AND p.home_group <> 'ZZ99')");
         $query->leftJoin($this->_db->qn('#__ra_mail_lists') . ' AS `l` ON l.id = a.list_id');
         $query->leftJoin($this->_db->qn('#__ra_mail_access') . ' AS `ma` ON ma.id = a.record_type');
 

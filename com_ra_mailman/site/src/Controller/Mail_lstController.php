@@ -50,8 +50,8 @@ class Mail_lstController extends BaseController {
     protected $objMailHelper;
     protected $message;
 
-    function __construct() {
-        parent::__construct();
+    function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->objMailHelper = new Mailhelper;
         $this->objHelper = new ToolsHelper;
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();

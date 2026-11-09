@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form>
+    <fieldset>
+        <field
+            name="user_id"
+            type="user"
+            label="User"
+            description="Select the user to subscribe."
+            required="true"
+        />
+        <field
+            name="list_id"
+            type="sql"
+            label="Mailing list"
+            description="Select the mailing list."
+            query="SELECT id AS value, CONCAT(group_code, ' - ', name) AS text FROM #__ra_mail_lists WHERE state = 1 ORDER BY group_code, name"
+            key_field="value"
+            value_field="text"
+            required="true"
+        >
+            <option value="">Select a mailing list</option>
+        </field>
+        <field
+            name="record_type"
+            type="radio"
+            label="Subscription type"
+            description="Choose subscriber access or authorship rights."
+            default="1"
+            required="true"
+        >
+            <option value="1">Add as Subscriber</option>
+            <option value="2">Grant Authorship rights</option>
+        </field>
+    </fieldset>
+</form>

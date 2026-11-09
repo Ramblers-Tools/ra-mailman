@@ -9,6 +9,7 @@
  * 09/06/23 CB added subscribe/unsubscribe
  * 06/01/24 CB cancelSubscription
  * 17/11/24 CB showDetails
+ * 04/11/26 CB remove obsolete getDbo reference
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -17,7 +18,10 @@ namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
 
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Helper\ContentHelper;
 use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Language\Text;
+use Joomla\CMS\Router\Route;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use \Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\SubscriptionHelper;
@@ -37,13 +41,110 @@ class SubscriptionController extends FormController {
     protected $objHelper;
     protected $view_list = 'subscriptions';
 
-    public function __construct() {
-        parent::__construct();
-        //        $this->db = Factory::getDbo();
+    public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->objHelper = new ToolsHelper;
         $this->app = Factory::getApplication();
         $wa = $this->app->getDocument()->getWebAssetManager();
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
+    }
+
+    public function add($key = null, $urlVar = null): void {
+        if (!ContentHelper::getActions('com_ra_mailman')->get('core.create')) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        // SubscriptionsModel stores this filter under its list-view state key.
+        // The add task is dispatched through SubscriptionController, so its
+        // request may not contain filter_search and its model state may not
+        // be populated from the list request.
+        $search = (string) $this->app->getUserState('com_ra_mailman.edit.subscription.filter_search', '');
+        if ($search === '') {
+            $search = (string) $this->app->getUserState('com_ra_mailman.subscriptions.filter.search', '');
+        }
+        if ($search === '') {
+            $search = (string) $this->input->getString('filter_search', '');
+        }
+        $this->app->setUserState('com_ra_mailman.edit.subscription.filter_search', $search);
+
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+    }
+
+    public function save($key = null, $urlVar = null): void {
+        $this->checkToken();
+
+        if (!ContentHelper::getActions('com_ra_mailman')->get('core.create')) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        $data = $this->input->post->get('jform', [], 'array');
+        $model = $this->getModel('Subscription', 'Administrator');
+        $form = $model->getForm($data, false);
+
+        if (!$form) {
+            throw new \RuntimeException($model->getError() ?: 'Unable to load the subscription form.');
+        }
+
+        $data = $model->validate($form, $data);
+
+        if ($data === false) {
+            foreach ($model->getErrors() as $error) {
+                $this->app->enqueueMessage($error instanceof \Throwable ? $error->getMessage() : (string) $error, 'warning');
+            }
+            $this->app->setUserState('com_ra_mailman.edit.subscription.data', $this->input->post->get('jform', [], 'array'));
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+
+            return;
+        }
+
+        $userId = (int) ($data['user_id'] ?? 0);
+        $listId = (int) ($data['list_id'] ?? 0);
+        $recordType = (int) ($data['record_type'] ?? 0);
+
+        if ($userId < 1 || $listId < 1 || !in_array($recordType, [1, 2], true)) {
+            $this->app->enqueueMessage('Please select a user, mailing list, and subscription type.', 'error');
+            $this->app->setUserState('com_ra_mailman.edit.subscription.data', $data);
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+
+            return;
+        }
+
+        $mailHelper = new Mailhelper;
+        if ($mailHelper->getSubscription($listId, $userId)) {
+            $this->app->enqueueMessage('This user already has a subscription record for that list.', 'warning');
+            $this->app->setUserState('com_ra_mailman.edit.subscription.data', $data);
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+
+            return;
+        }
+
+        $subscription = new SubscriptionHelper;
+        $subscription->user_id = $userId;
+        $subscription->list_id = $listId;
+        $subscription->record_type = $recordType;
+        $subscription->method_id = 2;
+        $subscription->state = 1;
+
+        try {
+            if (!$subscription->add()) {
+                throw new \RuntimeException($subscription->message ?: 'Unable to create the subscription.');
+            }
+        } catch (\Throwable $exception) {
+            $this->app->enqueueMessage($exception->getMessage(), 'error');
+            $this->app->setUserState('com_ra_mailman.edit.subscription.data', $data);
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+
+            return;
+        }
+
+        $this->app->setUserState('com_ra_mailman.edit.subscription.data', null);
+        $this->app->enqueueMessage('Subscription created.', 'message');
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+    }
+
+    public function cancel($key = null, $urlVar = null): void {
+        $this->app->setUserState('com_ra_mailman.edit.subscription.data', null);
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
     }
 
     public function cancelSubscription() {

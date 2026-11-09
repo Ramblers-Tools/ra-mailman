@@ -36,8 +36,8 @@ class User_selectController extends AdminController {
     protected $view_item = 'profile';
     protected $view_list = 'mail_lsts';
 
-    function __construct() {
-        parent::__construct();
+    function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->toolsHelper = new ToolsHelper;
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');

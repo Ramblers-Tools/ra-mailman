@@ -107,7 +107,7 @@ echo 'Select subscriptions for ' . $this->user_name . '</h2>';
                                 $icon = 'minus';
                             } else {
                                 // See if User is already subscribed
-                                $sql = 'SELECT id, state FROM #__ra_mail_subscriptions WHERE user_id=' . $this->user_id;
+                                $sql = 'SELECT id, state, record_type FROM #__ra_mail_subscriptions WHERE user_id=' . $this->user_id;
                                 $sql .= ' AND list_id=' . $item->id;
 //                                echo "$sql<br>";
                                 $subscription = $this->objHelper->getItem($sql);
@@ -117,6 +117,11 @@ echo 'Select subscriptions for ' . $this->user_name . '</h2>';
                                     $target .= 'subscribe';
                                     $caption = 'Subscribe';
                                     $colour = 'sunset';
+                                    $action = $this->objHelper->buildButton($target, $caption, False, $colour);
+                                } elseif (($subscription->state == 1) AND ($subscription->record_type == 2)) {
+                                    // Authors must not be able to strip their own authoring rights via self-service unsubscribe.
+                                    $action = 'Author — contact list owner to change';
+                                    $icon = 'minus';
                                 } else {
                                     //
                                     if ($subscription->state == 0) {
@@ -130,8 +135,8 @@ echo 'Select subscriptions for ' . $this->user_name . '</h2>';
                                         $caption = 'Un-subscribe';
                                         $colour = 'rosycheeks';
                                     }
+                                    $action = $this->objHelper->buildButton($target, $caption, False, $colour);
                                 }
-                                $action = $this->objHelper->buildButton($target, $caption, False, $colour);
                             }
 
                             echo "<tr>" . PHP_EOL;

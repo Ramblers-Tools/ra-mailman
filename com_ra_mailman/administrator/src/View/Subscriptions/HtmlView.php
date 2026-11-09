@@ -1,13 +1,10 @@
 <?php
 
 /**
- * @version    4.5.3
- * @package    com_ra_mailman
- * @author     Charlie Bigley <charlie@bigley.me.uk>
- * @copyright  2025 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 17/07/25 CB regenerated, adjust buttons, use ContentHelp and CurrentUserInterface
  * 25/08/25 CB Help
+ * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
+ * 08/11/26 CB hide main menu for toolbar view
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Subscriptions;
@@ -16,13 +13,13 @@ namespace Ramblers\Component\Ra_mailman\Administrator\View\Subscriptions;
 defined('_JEXEC') or die;
 
 use \Joomla\Component\Content\Administrator\Extension\ContentComponent;
+use Joomla\CMS\Factory;
 use Joomla\CMS\Helper\ContentHelper;
 use \Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use \Joomla\CMS\Toolbar\Toolbar;
 use \Joomla\CMS\Toolbar\ToolbarHelper;
 use \Joomla\CMS\Language\Text;
 use \Joomla\CMS\Form\Form;
-use \Joomla\CMS\HTML\Helpers\Sidebar;
 use \Joomla\CMS\User\CurrentUserInterface;
 
 /**
@@ -48,6 +45,10 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
      */
     public function display($tpl = null) {
         $this->state = $this->get('State');
+        Factory::getApplication()->setUserState(
+                'com_ra_mailman.edit.subscription.filter_search',
+                (string) $this->getState('filter.search', '')
+        );
         $this->items = $this->get('Items');
         $this->pagination = $this->get('Pagination');
         $this->filterForm = $this->get('FilterForm');
@@ -60,7 +61,6 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
 
         $this->addToolbar();
 
-        $this->sidebar = Sidebar::render();
         parent::display($tpl);
     }
 
@@ -72,14 +72,18 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
      * @since   4.4.11
      */
     protected function addToolbar() {
-        // Set sidebar action
-        Sidebar::setAction('index.php?option=com_ra_mailman&view=subscriptions');
+        // Suppress menu side panel
+        Factory::getApplication()->input->set('hidemainmenu', true);        
         $state = $this->get('State');
         $canDo = ContentHelper::getActions('com_ra_mailman');
 
         ToolbarHelper::title(Text::_('Mail Subscriptions'), "generic");
 
         $toolbar = Toolbar::getInstance('toolbar');
+
+        if ($canDo->get('core.create')) {
+            $toolbar->addNew('subscription.add')->text('New Subscription');
+        }
 
         if ($canDo->get('core.edit.state')) {
             $dropdown = $toolbar->dropdownButton('status-group')
@@ -92,8 +96,8 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
             $childBar = $dropdown->getChildToolbar();
 
             if (isset($this->items[0]->state)) {
-                $childBar->publish('subscriptions.publish')->listCheck(true);
-                $childBar->unpublish('subscriptions.unpublish')->listCheck(true);
+                $childBar->publish('subscriptions.publish', 'Subscribe')->listCheck(true);
+                $childBar->unpublish('subscriptions.unpublish', 'Unsubscribe')->listCheck(true);
 //                $childBar->archive('subscriptions.archive')->listCheck(true);
 //            } elseif (isset($this->items[0])) {
 //                // If this component does not use state then show a direct delete button as we can not trash

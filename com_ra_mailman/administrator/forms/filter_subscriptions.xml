@@ -56,6 +56,8 @@
             <option value="u.name DESC">Subscriber Decending</option>
             <option value="m.name ASC">Method Ascending</option>
             <option value="m.name DESC">Method Decending</option>
+            <option value="ma.name ASC">Access Ascending</option>
+            <option value="ma.name DESC">Access Decending</option>
             <!--// N.B. database values are 0 and 1, so have to reverse sort -->
             <option value="a.state DESC">Status Ascending</option>
             <option value="a.state ASC">Status Decending</option>
@@ -63,9 +65,6 @@
             <option value="a.modified DESC">Last updated Decending</option>
             <option value="a.expiry_date ASC">Expiry date Ascending</option>
             <option value="a.expiry_date DESC">Expiry date Descending</option>
-            <option value="a.ip_address ASC">IP Address Ascending</option>
-            <option value="a.ip_address DESC">IP Address Decending</option>
-
         </field>
 
        <field name="limit"

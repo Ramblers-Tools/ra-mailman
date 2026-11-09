@@ -11,7 +11,7 @@
  * It can be run in two modes, firstly producing a report on the proposed actions,
  * and if confirmation is given, it invokes itself again with a different mode to make the database changes.
  *
- * The actual processing logic is encapsulated in UserHelper.
+ * Processing is invoked by the LoadHelper adapter from the Process template.
  * 14/07/25 CB support for template check
  */
 

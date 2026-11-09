@@ -102,7 +102,6 @@ class MailshotTable extends Table implements VersionableTableInterface, Taggable
         $input = $app->input;
         $task = $input->getString('task', '');
 
-        $array['reply_to'] = $this->lookupContact($array['contact_id']);
         if ($array['id'] == 0) {
             $array['created'] = Factory::getDate('now', Factory::getConfig()->get('offset'))->toSql(true);
             $array['created_by'] = $user->id;
@@ -277,13 +276,6 @@ class MailshotTable extends Table implements VersionableTableInterface, Taggable
         return parent::check();
     }
 
-    private function lookupContact($id) {
-        $toolsHelper = new ToolsHelper;
-        $sql = 'SELECT email FROM #__users AS u ';
-        $sql .= 'WHERE id = ' . (INT) $id;
-        //       return $sql;
-        return $toolsHelper->getValue($sql);
-    }
 
     private function normaliseAttachmentNames($attachments) {
         if (empty($attachments)) {

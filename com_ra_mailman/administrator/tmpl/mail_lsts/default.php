@@ -39,6 +39,48 @@ HTMLHelper::_('behavior.multiselect');
 // Import CSS
 $wa = $this->document->getWebAssetManager();
 $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
+$this->document->addStyleDeclaration(
+    "#ra-mailman-schedule-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%;" .
+    " background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; }" .
+    "#ra-mailman-schedule-modal .ra-mailman-schedule-box { background:#fff; color:#000; padding:20px;" .
+    " border-radius:6px; min-width:280px; box-shadow:0 2px 12px rgba(0,0,0,0.3); }" .
+    "#ra-mailman-schedule-modal .ra-mailman-schedule-box input[type=date] { width:100%; margin:5px 0; }" .
+    "#ra-mailman-schedule-modal .ra-mailman-schedule-box select { margin:5px 0; min-width:60px; }"
+);
+$this->document->addScriptDeclaration(
+    "function raMailmanOpenSchedule(mailshotId, total, basePath, existingSendAfter) {" .
+    " var modal = document.getElementById('ra-mailman-schedule-modal');" .
+    " modal.dataset.mailshotId = mailshotId; modal.dataset.total = total; modal.dataset.basePath = basePath;" .
+    " var pad = function(n) { return (n < 10 ? '0' : '') + n; };" .
+    " var d = existingSendAfter ? new Date(existingSendAfter.replace(' ', 'T')) : new Date(Date.now() + 30 * 60000);" .
+    " var today = new Date();" .
+    " var todayStr = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());" .
+    " document.getElementById('ra-mailman-schedule-date').min = todayStr;" .
+    " document.getElementById('ra-mailman-schedule-date').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());" .
+    " var hourSel = document.getElementById('ra-mailman-schedule-hour');" .
+    " var minSel = document.getElementById('ra-mailman-schedule-minute');" .
+    " if (!hourSel.options.length) {" .
+    "  for (var h = 0; h < 24; h++) { var o = document.createElement('option'); o.value = pad(h); o.text = pad(h); hourSel.appendChild(o); }" .
+    "  for (var m = 0; m < 60; m += 5) { var o2 = document.createElement('option'); o2.value = pad(m); o2.text = pad(m); minSel.appendChild(o2); }" .
+    " }" .
+    " hourSel.value = pad(d.getHours());" .
+    " minSel.value = pad(Math.round(d.getMinutes() / 5) * 5 % 60);" .
+    " modal.style.display = 'flex';" .
+    " }" .
+    "function raMailmanCloseSchedule() {" .
+    " document.getElementById('ra-mailman-schedule-modal').style.display = 'none';" .
+    " }" .
+    "function raMailmanConfirmSchedule() {" .
+    " var modal = document.getElementById('ra-mailman-schedule-modal');" .
+    " var d = document.getElementById('ra-mailman-schedule-date').value;" .
+    " var h = document.getElementById('ra-mailman-schedule-hour').value;" .
+    " var m = document.getElementById('ra-mailman-schedule-minute').value;" .
+    " if (!d) { alert('Please choose a date and time to schedule the send.'); return; }" .
+    " var val = d + 'T' + h + ':' + m;" .
+    " if (new Date(val) <= new Date()) { alert('Please choose a date and time in the future.'); return; }" .
+    " window.location.href = modal.dataset.basePath + '?option=com_ra_mailman&task=mailshot.schedule&mailshot_id=' + modal.dataset.mailshotId + '&total=' + modal.dataset.total + '&send_at=' + encodeURIComponent(val);" .
+    " }"
+);
 
 $listOrder = $this->state->get('list.ordering');
 $listDirn = $this->state->get('list.direction');
@@ -117,7 +159,7 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                     </thead>
                     <tfoot>
                         <tr>
-                            <td colspan="11">
+                            <td colspan="<?php echo $canEdit ? 14 : 13; ?>">
                                 <?php echo $this->pagination->getListFooter(); ?>
                             </td>
                         </tr>
@@ -196,12 +238,21 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                                     echo '<td>';
                                     if ($item->emails_outstanding > 0) {
                                         echo $item->emails_outstanding;
+                                        if ($last_mailshot->is_scheduled) {
+                                            echo ' (scheduled for ' . HTMLHelper::_('date', $last_mailshot->send_after, 'H:i d M Y') . ')';
+                                        }
                                     }
                                     echo '</td>';
 
                                     echo '<td>'; // . $item->owner_id;
                                     if ($item->emails_outstanding == 0) {
                                         echo $this->sendButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor);
+                                        echo $this->scheduleButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor);
+                                    } else {
+                                        if ($last_mailshot->is_scheduled) {
+                                            echo $this->scheduleButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor, 'Edit schedule');
+                                        }
+                                        echo $this->cancelButton($last_mailshot, $canEdit, $isAuthor);
                                     }
                                     echo '</td>';
 
@@ -263,6 +314,9 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                                                 //  }
                                             }
                                             echo $this->toolsHelper->buildButton($target_edit, $label, False, $colour);
+                                            if ($label === 'Edit') {
+                                                echo $this->discardButton($last_mailshot);
+                                            }
                                         }
                                     }
 
@@ -290,3 +344,18 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
         </div>
     </div>
 </form>
+
+<div id="ra-mailman-schedule-modal">
+    <div class="ra-mailman-schedule-box">
+        <h4>Schedule mailshot</h4>
+        <label for="ra-mailman-schedule-date">Send at:</label>
+        <input type="date" id="ra-mailman-schedule-date">
+        <span class="fas fa-clock" aria-hidden="true"></span>
+        <select id="ra-mailman-schedule-hour"></select> :
+        <select id="ra-mailman-schedule-minute"></select>
+        <div>
+            <button type="button" class="link-button button-p0159" onclick="raMailmanConfirmSchedule()">Queue</button>
+            <button type="button" class="link-button" onclick="raMailmanCloseSchedule()">Cancel</button>
+        </div>
+    </div>
+</div>

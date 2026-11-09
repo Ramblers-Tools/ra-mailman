@@ -29,6 +29,7 @@
 namespace Ramblers\Component\Ra_mailman\Site\Helpers;
 
 use Joomla\CMS\Factory;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 class SubscriptionHelper {
@@ -75,7 +76,7 @@ class SubscriptionHelper {
         $date = Factory::getDate();
 //        $date = Factory::getDate('now', Factory::getConfig()->get('offset'));
         $date->modify('+1 year');
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         if ($this->current_user == 0) {  // self registering
             $user = $this->user_id;
         } else {
@@ -192,6 +193,7 @@ class SubscriptionHelper {
         $sql .= 'LEFT JOIN #__ra_profiles AS p ON p.id = s.user_id ';
         $sql .= 'LEFT JOIN #__ra_mail_lists AS l ON l.id = s.list_id ';
         $sql .= 'WHERE s.id=' . $id;
+        $sql .= " AND p.state = 1 AND p.home_group <> 'ZZ99'";
         $item = $objHelper->getItem($sql);
         $this->list_id = $item->list_id;
         $this->user_id = $item->user_id;
@@ -207,7 +209,7 @@ class SubscriptionHelper {
         $this->message .= ", updating " . $field_name;
         $this->fields_updated++;
 //            $this->createAuditRecord($field_name, $old_value, $new_value, $this->id, "#__ra_mail_subscriptions");
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         if ($this->current_user == 0) {
             $user = $this->user_id;
         } else {
@@ -233,7 +235,7 @@ class SubscriptionHelper {
     }
 
     function delete($list_id, $user_id) {
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
         $query->delete($db->quoteName('#__ra_mail_subscriptions_audit'));
         $query->where('object_id=' . $this->id);
@@ -261,7 +263,7 @@ class SubscriptionHelper {
             return 0;
         }
         $this->fields_updated = 0;
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
 
         $query = $db->getQuery(true);
 
@@ -297,7 +299,7 @@ class SubscriptionHelper {
 
     public function forceRenewal($list_id, $user_id) {
         $date = Factory::getDate();
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
 //        $objHelper = new ToolsHelper;
 //        $sql = 'SELECT list_id, user_id,expiry_date FROM `#__ra_mail_subscriptions` WHERE id=' . $id;
 //        $item = $objHelper->getItem($sql);
@@ -344,7 +346,7 @@ class SubscriptionHelper {
 //
         $fields = array();    // List of fields requiring update
         $this->fields_updated = 0;
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
 // find existing field values in the database

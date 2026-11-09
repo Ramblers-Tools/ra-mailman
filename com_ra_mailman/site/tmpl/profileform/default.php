@@ -15,7 +15,6 @@ use \Joomla\CMS\Factory;
 use \Joomla\CMS\Uri\Uri;
 use \Joomla\CMS\Router\Route;
 use \Joomla\CMS\Language\Text;
-use \Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 
 $wa = $this->document->getWebAssetManager();
 $wa->useScript('keepalive')

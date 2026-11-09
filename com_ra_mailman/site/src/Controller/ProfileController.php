@@ -13,6 +13,7 @@
  * 12/02/25 CB use table from Administrator, not Site
  *             replace getIdentity with getSession()->get('user')
  * 24/08/25 CB change welcome message
+ * 12/09/26 CB deleted redundant edit and save functions
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Controller;
@@ -22,7 +23,6 @@ namespace Ramblers\Component\Ra_mailman\Site\Controller;
 use Joomla\CMS\Application\SiteApplication;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
-use \Joomla\CMS\Helper\ContentHelper;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\MVC\Controller\FormController;
 use Joomla\CMS\Object\CMSObject;
@@ -32,7 +32,6 @@ use Joomla\CMS\Uri\Uri;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
-use Ramblers\Component\Ra_mailman\Site\Helpers\UserHelper;
 
 /**
  * Profile class.
@@ -43,8 +42,8 @@ class ProfileController extends FormController {
 
     private $toolsHelper;
 
-    public function __construct() {
-        parent::__construct();
+    public function __construct($config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
+        parent::__construct($config, $factory);
         $this->toolsHelper = new ToolsHelper;
         $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
         $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
@@ -57,168 +56,6 @@ class ProfileController extends FormController {
         // Flush the data from the session.
         $this->app->setUserState('com_ra_mailman.edit.profile.data', null);
         $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=mail_lsts', false));
-    }
-
-    /**
-     * Method to check out an item for editing and redirect to the edit form.
-     *
-     * @return  void
-     *
-     * @since   4.1.0
-     *
-     * @throws  Exception
-     */
-    public function edit($key = NULL, $urlVar = NULL) {
-        // Get the previous edit id (if any) and the current edit id.
-        $previousId = (int) $this->app->getUserState('com_ra_mailman.edit.profile.id');
-        $editId = $this->input->getInt('id', 0);
-        $user = Factory::getApplication()->getSession()->get('user');
-        if (!is_null($user->id)) {
-            $canDo = ContentHelper::getActions('com_ra_mailman');
-            if (!$canDo->get('core.create')) {
-                Factory::getApplication() > enqueueMessage('Sorry, you don\'t have permission to create new Users', 'error');
-                $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=mail_lsts', false));
-                return;
-            }
-        }
-        // Set the user id for the user to edit in the session.
-        $this->app->setUserState('com_ra_mailman.edit.profile.id', $editId);
-
-        // Get the model.
-        $model = $this->getModel('Profile', 'Administrator');
-
-        // Check out the item
-        if ($editId) {
-            $model->checkout($editId);
-        }
-
-        // Check in the previous user.
-        if ($previousId) {
-            $model->checkin($previousId);
-        }
-
-        // Redirect to the edit screen.
-        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=profile&layout=edit', false));
-    }
-
-    /**
-     * Method to save data.
-     *
-     * @return  void
-     *
-     * @throws  Exception
-     * @since   4.1.0
-     */
-    public function save($key = NULL, $urlVar = NULL) {
-        // Check for request forgeries.
-        $this->checkToken();
-        $this->app->enqueueMessage('Model: Token is valid', 'info');
-        // Initialise variables.
-        $model = $this->getModel('Profile', 'Site');
-        if (is_null($model)) {
-            $this->app->enqueueMessage('Unable to get Model: Null', 'error');
-//            die('Unable to get Model');
-            return false;
-        }
-        if ($model == false) {
-            $this->app->enqueueMessage('Unable to get Model: false', 'error');
-//            die('Unable to get Model');
-            return false;
-        }
-        // Get the user data.
-        $data = $this->input->get('jform', array(), 'array');
-
-        // Validate the posted data.
-        $form = $model->getForm();
-
-        if (!$form) {
-            throw new \Exception($model->getError(), 500);
-        }
-
-        // Send an object which can be modified through the plugin event
-        $objData = (object) $data;
-        $this->app->triggerEvent(
-                'onContentNormaliseRequestData',
-                array($this->option . '.' . $this->context, $objData, $form)
-        );
-        $data = (array) $objData;
-
-        // Validate the posted data.
-        $data = $model->validate($form, $data);
-
-        // Check for errors.
-        if ($data === false) {
-//            die('errors');
-            // Get the validation messages.
-            $errors = $model->getErrors();
-
-            // Push up to three validation messages out to the user.
-            for ($i = 0, $n = count($errors); $i < $n && $i < 3; $i++) {
-                if ($errors[$i] instanceof \Exception) {
-                    $this->app->enqueueMessage($errors[$i]->getMessage(), 'warning');
-                } else {
-                    $this->app->enqueueMessage($errors[$i], 'warning');
-                }
-            }
-
-            $jform = $this->input->get('jform', array(), 'ARRAY');
-
-            // Save the data in the session.
-            $this->app->setUserState('com_ra_mailman.edit.profile.data', $jform);
-
-            // Redirect back to the edit screen.
-            $menu = Factory::getApplication()->getMenu();
-            $item = $menu->getActive();
-            $url = $item->link . '&id=' . $item->id;
-            $this->setRedirect(Route::_($url, false));
-
-            $this->redirect();
-        }
-
-        // Attempt to create a new user and a new profile
-        $new_user_id = $model->save($data);
-
-        // Check for errors.
-        if ($new_user_id === false) {
-            // Save the data in the session.
-            $this->app->setUserState('com_ra_mailman.edit.profile.data', $data);
-
-            // Redirect back to the edit screen.
-            $menu = Factory::getApplication()->getMenu();
-            $item = $menu->getActive();
-            $url = $item->link . '&Itemid=' . $item->id;
-//            var_dump($item->id);
-//            die($url);
-            $this->setRedirect(Route::_($url, false));
-            $this->redirect();
-        }
-//        die('no error from model');
-
-        if ($new_user_id == 0) {
-            $this->app->enqueueMessage('Unable to create User', 'error');
-//            die('Unable to create user');
-            return false;
-        }
-
-        // Clear the profile id from the session.
-        $this->app->setUserState('com_ra_mailman.edit.profile.id', null);
-
-        // Flush the data from the session.
-        $this->app->setUserState('com_ra_mailman.edit.profile.data', null);
-
-        // If self registering, redirect to thank you screen
-        // else show available mailing lists
-        $current_user = $this->app->getSession()->get('user')->id;
-        //    var_dump($current_user);
-        //    die;
-        if ($current_user == 0) {   // Self registering, redirect to welcome screen
-            $url = 'index.php?option=com_ra_mailman&task=profile.showWelcome&user_id=' . $new_user_id;
-        } else {                    // Administrator, redirect to allow selection of lists
-            $url = 'index.php?option=com_ra_mailman&view=list_select&user_id=' . $new_user_id;
-        }
-//        $this->app->enqueueMessage('Redirecting to ' . $url, 'info');
-        $this->setRedirect(Route::_($url, false));
-        $this->redirect();
     }
 
     public function showSubscriptionDetails() {
@@ -235,6 +72,7 @@ class ProfileController extends FormController {
     public function showWelcome() {
 // Shows a welcome message after a User has self-registered
 // (Would be better if displayed as a View)
+        $app = Factory::getApplication();
         $user_id = Factory::getApplication()->input->getInt('user_id', '0');
         $params = ComponentHelper::getParams('com_ra_mailman');
         $welcome_message = $params->get('welcome_message');
@@ -245,11 +83,31 @@ class ProfileController extends FormController {
         $sql .= 'WHERE u.id=' . $user_id;
         $item = $this->toolsHelper->getItem($sql);
 
-        echo '<h2>Welcome to MailMan ' . $item->preferred_name . '</h2>';
-        echo '<p>' . $params->get('welcome_message') . '</p>';
+        if (!$item) {
+            throw new \RuntimeException('Unable to find the newly registered user.', 404);
+        }
 
-        echo '<p>Please authenticate yourself by requesting a Password reset ';
-        echo $this->toolsHelper->standardButton('Go', 'index.php?option=com_users&view=reset&Itemid=');
+        $welcomeEmailKey = 'com_ra_mailman.welcome_email_sent.' . $user_id;
+        $session = $app->getSession();
+
+        if ($user_id > 0 && !$session->get($welcomeEmailKey, false) && filter_var($item->email, FILTER_VALIDATE_EMAIL)) {
+            $siteName = (string) $app->get('sitename');
+            $subject = 'Welcome to MailMan at ' . $siteName;
+            $body = '<p>Hello ' . htmlspecialchars((string) $item->preferred_name, ENT_QUOTES, 'UTF-8') . ',</p>'
+                    . $welcome_message;
+
+            if ($this->toolsHelper->sendEmail($item->email, '', $subject, $body)) {
+                $session->set($welcomeEmailKey, true);
+            } else {
+                $app->enqueueMessage('Unable to send the MailMan welcome email.', 'warning');
+            }
+        }
+
+        echo '<h2>Welcome to MailMan ' . htmlspecialchars((string) $item->preferred_name, ENT_QUOTES, 'UTF-8') . '</h2>';
+        echo '<p>' . $welcome_message . '</p>';
+
+//        echo '<p>An Administrator will check your details and approve your account. You will receive an email when this has been done.</p>';
+//        echo $this->toolsHelper->standardButton('Go', 'index.php?option=com_users&view=reset&Itemid=');
         echo '<p>';
 
         $sql = 'SELECT l.group_code, l.name, g.name AS group_name ';
@@ -263,23 +121,12 @@ class ProfileController extends FormController {
             echo 'There may be other newsletters that interest you, you can manage  ';
             echo 'these after you have changed your password and successfully logged on</p>';
         }
-        // Could show button fopr password reset
-        // $target = 'index.php?option=com_users&view=reset';
+
         echo $this->toolsHelper->backButton('index.php');
     }
 
     public function submit($key = NULL, $urlVar = NULL) {
         die('controller/submit');
-    }
-
-    public function test() {
-        if (!$this->toolsHelper->isSuperuser()) {
-            echo 'Logon first<br>';
-            return;
-        }
-        $userHelper = new UserHelper;
-        echo __FILE__ . '<br>';
-        $userHelper->test();
     }
 
 }

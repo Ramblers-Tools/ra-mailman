@@ -20,6 +20,7 @@
  * 15/06/26 CB lookupMember
  * 23/06/26 CB Tweak showSubscriptionDetails
  * 28/06/26 CB optionally over-ride send_to, draft emails
+ * 23/10/26 CB Get logo for Organisations if multi-site
  */
 
 namespace Ramblers\Component\Ra_mailman\Site\Helpers;
@@ -30,12 +31,15 @@ use Joomla\CMS\Helper\ContentHelper;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Object\CMSObject;
 use Joomla\CMS\Uri\Uri;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_events\Site\Helpers\BookingHelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\SubscriptionHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
 
 class Mailhelper {
+
+    const SEND_DELAY_MINUTES = 5; // minimum wait after clicking Send before any email is actually dispatched
 
     public $batch_mode = false; // if true, messages are added to $this->messages instead of enqueued, for display at the end of the batch process
     public $message;
@@ -54,7 +58,7 @@ class Mailhelper {
     protected $query;
 
     public function __construct() {
-        $this->db = Factory::getDbo();
+        $this->db = Factory::getContainer()->get(DatabaseInterface::class);
         $this->toolsHelper = new ToolsHelper;
         $this->app = Factory::getApplication();
         $this->user = $this->app->getSession()->get('user');
@@ -103,11 +107,13 @@ class Mailhelper {
 
 //      Add the logo block if a file is configured.
         if (($logo != '') && file_exists(JPATH_ROOT . $logo)) {
-            $image_data = file_get_contents(JPATH_ROOT . $logo);
-            $encoded = base64_encode($image_data);
             $header .= '<a href="' . $setup->website . '" style="flex-shrink: 0; display: flex;">';
-            $header .= '<img src="data:image/jpeg;base64,' . $encoded . '" ';
-            $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%; height: auto;" ';
+            $header .= '<img src="' . $this->resizeAndEncodeImageAsDataUri(JPATH_ROOT . $logo, $setup->width, $setup->height) . '" ';
+            // Some mail clients (e.g. Spark) strip/ignore the style attribute on images
+            // and only honour real HTML width/height attributes - set both so the
+            // configured size is respected everywhere.
+            $header .= 'width="' . $setup->width . '" height="' . $setup->height . '" ';
+            $header .= 'style="height: ' . $setup->height . 'px; width: ' . $setup->width . 'px; display: block; max-width: 100%;" ';
             $header .= 'alt="Logo">';
             $header .= '</a>';
         } elseif ($logo != '') {
@@ -170,20 +176,22 @@ class Mailhelper {
             $text .= '</ul>';
         }
         $text .= '<h4>Scope ' . $subheading . '</h4>';
-        $canDo = ContentHelper::getActions('com_ra_members');
-        if ($canDo->get('core.create')) {
-            $text .= '<h3>Members</h3>';
-            $text .= '<ul>';
+        if (ComponentHelper::isEnabled('com_ra_members', true)) {
+            $canDo = ContentHelper::getActions('com_ra_members');
+            if ($canDo->get('core.create')) {
+                $text .= '<h3>Members</h3>';
+                $text .= '<ul>';
 
-            $text .= '<li><a href="index.php?option=com_ra_members&view=members" target="_self">Members</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_members&amp;view=roles" target="_self">Roles</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_tools&amp;view=users" target="_self">Users</a></li>';
-            $text .= '<li><a href="index.php?option=com_ra_members&amp;view=reports" target="_self">Membership Reports</a></li>';
-            $versions = $this->toolsHelper->getVersions('com_ra_members');
-            $text .= '<li><a href="index.php?option=com_config&view=component&component=com_ra_members" target="_self">';
-            $text .= "Configure system defaults (version " . $versions->component . ")</a></li>" . PHP_EOL;
+                $text .= '<li><a href="index.php?option=com_ra_members&view=members" target="_self">Members</a></li>';
+                $text .= '<li><a href="index.php?option=com_ra_members&amp;view=roles" target="_self">Roles</a></li>';
+                $text .= '<li><a href="index.php?option=com_ra_tools&amp;view=users" target="_self">Users</a></li>';
+                $text .= '<li><a href="index.php?option=com_ra_members&amp;view=reports" target="_self">Membership Reports</a></li>';
+                $versions = $this->toolsHelper->getVersions('com_ra_members');
+                $text .= '<li><a href="index.php?option=com_config&view=component&component=com_ra_members" target="_self">';
+                $text .= "Configure system defaults (version " . $versions->component . ")</a></li>" . PHP_EOL;
 //            $text .= '<li><a href="index.php?option=com_ra_mailman&task=profiles.load" target="_self">Test data load</a></li>';
-            $text .= '</ul>';
+                $text .= '</ul>';
+            }
         }
 
         $text .= '<h3>Mail Manager</h3>';
@@ -235,11 +243,8 @@ class Mailhelper {
         $sql .= 'LEFT JOIN #__ra_profiles AS p ON p.id = l.owner_id ';
         $sql .= 'WHERE m.id=' . $mailshot_id;
 
-        $db = Factory::getDbo();
-        $query = $db->getQuery(true);
-        $db->setQuery($sql);
-        $db->execute();
-        $item = $db->loadObject();
+        $item = $this->toolsHelper->getItem($sql);
+
         // Save the event id in case an invitation link is required.
         $this->event_id = $item->event_id;
         if ($item->event_id > 0) {
@@ -272,7 +277,7 @@ class Mailhelper {
         $mailshot_body .= '<div style="background: ' . $setup->colour_body;
         $mailshot_body .= '; padding-top: 10px; padding-bottom: 10px; ">';
 
-        $mailshot_body .= $item->body;
+        $mailshot_body .= $this->embedBodyImages($item->body);
 
         $mailshot_body .= '<br>From ';
         if ($signatory == $item->Owner) {
@@ -285,14 +290,24 @@ class Mailhelper {
         }
 
 
-        // Collect any attachments for the outgoing email.
+        // Image attachments are inlined directly into the body as base64 data URIs;
+        // non-image attachments (e.g. PDF, docx, csv) are sent as real MIME attachments,
+        // since forcing them through an <img> tag produced a broken image and dropped
+        // the actual file.
         if ($item->attachment != '') {
             $attach_array = explode(',', $item->attachment);
             foreach ($attach_array as $file) {
                 $working_file = JPATH_ROOT . '/images/com_ra_mailman/' . $file;
-                Factory::getApplication()->enqueueMessage('Attaching file "' . $file, 'notice');
                 if (file_exists($working_file)) {
-                    $this->attachments[] = $working_file;
+                    $mime = @getimagesize($working_file)['mime'] ?? null;
+                    if ($mime !== null) {
+                        $mailshot_body .= '<div style="margin: 12px 0;">';
+                        $mailshot_body .= '<img src="' . $this->encodeImageAsDataUri($working_file) . '" ';
+                        $mailshot_body .= 'alt="' . htmlspecialchars($file, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100%; height: auto;">';
+                        $mailshot_body .= '</div>';
+                    } else {
+                        $this->attachments[] = $working_file;
+                    }
                 } else {
                     $mailshot_body .= 'File ' . $file . ' not found<br>';
                     $this->message .= $working_file . ' not found';
@@ -300,12 +315,12 @@ class Mailhelper {
             }
         }
         // Leave the body div open here so event content can be inserted later.
-        // Footer comprises the footer from the list plus the component footer.
-        // It is left open so the unsubscribe link can be appended later.
+        // Footer comprises the list footer plus the system footer from the component
+        // configuration. It is left open so the unsubscribe link can be appended later.
         $this->footer = '<div style="background: ' . $setup->colour_footer;
         $this->footer .= '; padding: 10px;  border-radius: 5%; ">';
         $this->footer .= $item->footer . '<br>';
-        $this->footer .= $setup->email_footer;
+        $this->footer .= $setup->system_footer;
         $this->footer .= '<br>';
         $this->footer .= 'To unsubscribe from future emails, click ';
         // N.B. final </div> not included
@@ -393,7 +408,7 @@ class Mailhelper {
             Factory::getApplication()->enqueueMessage("You are not logged in", 'error');
             return false;
         }
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $jinput = Factory::getApplication()->input;
         $ip_address = $jinput->server->get('REMOTE_ADDR');
         $sql = 'SELECT email FROM #__users WHERE id=' . $user_id;
@@ -502,11 +517,23 @@ class Mailhelper {
         return strrev($token) . "M";
     }
 
-    private function generateInvitation($website_base, $event_id, $user_id) {
-//     Invoked from sendEmails and from sendDraft
+    private function generateInvitation($event_id, $user_id) {
+//     Invoked from sendDraft. sendEmails() inlines the same logic separately since it
+//     already has $setup in scope there.
+        $setup = $this->getEmailSetup();
+        if ($setup === false) {
+            return '';
+        }
+        // buildMessage() also instantiates this when its own event_id check passes, but
+        // that's a separate, independent query result - don't rely on it having run, or
+        // having agreed. A null bookingHelper here is a fatal "call to member function on
+        // null", not a silently-skipped block.
+        if (is_null($this->bookingHelper)) {
+            $this->bookingHelper = new BookingHelper;
+        }
         $message = '<div style="background: ' . $setup->colour_body;
         $message .= '; padding-top: 10px; ">';
-        $message .= $this->bookingHelper->generateInvitation($website_base, $event_id, $user_id);
+        $message .= $this->bookingHelper->generateInvitation($event_id, $user_id);
         $message .= '</div>';
         return $message;
     }
@@ -522,6 +549,15 @@ class Mailhelper {
 //        }
         $user = $this->app->getSession()->get('user');
         $context = 'com_ra_mailman.default_group.';
+
+        // RA Members reports may temporarily override the normal home-group
+        // scope. Keep this state separate from MailMan's own scope.
+        if ($this->app->input->getCmd('option') === 'com_ra_members') {
+            $override = strtoupper(trim((string) $this->app->getUserState('com_ra_members.reports.group', '')));
+            if ($override === 'N' || preg_match('/^[A-Z0-9]{4}$/', $override)) {
+                return $override;
+            }
+        }
 
         $default_group = $this->app->getUserState($context, '');
         if ($default_group == '') {
@@ -569,67 +605,97 @@ class Mailhelper {
 
     public function getEmailSetup() {
         $params = ComponentHelper::getParams('com_ra_mailman');
+        // as at 23/10/26, Logo height/width/ come from com_ra_tools component
+        // but should come from the organisation table
+        $toolsParams = ComponentHelper::getParams('com_ra_tools');
 
         $setup = (object) [
+
+                    'logo_file' => $toolsParams->get('logo', ''),
+                    'logo_align' => $toolsParams->get('logo_align', 'right'),
+                    'height' => $toolsParams->get('height', 90),
+                    'width' => $toolsParams->get('width', 90),
+
                     'website' => $params->get('website', ''),
                     'email_header' => $params->get('email_header', ''),
-                    'email_footer' => $params->get('email_footer', ''),
-                    'logo_file' => $params->get('logo_file', ''),
-                    'logo_align' => $params->get('logo_align', 'right'),
+                    'system_footer' => $params->get('email_footer', ''),
                     'colour_header' => $params->get('colour_header', 'rgba(20, 141, 168, 0.5)'),
                     'colour_body' => $params->get('colour_body', 'rgba(20, 141, 168, 0.5)'),
                     'colour_footer' => $params->get('colour_footer', 'rgba(20, 141, 168, 0.8)'),
-                    'height' => $params->get('height', 90),
-                    'width' => $params->get('width', 90),
+
                     'setup_source' => 'Component configuration',
                     'setup_code' => '',
         ];
-        if ($this->batch_mode) {
-            $code = $this->config_group;
-            $this->toolsHelper->createLog('RA Mailman', '6', 'EmailSetup', 'Batch mode: config=' . $this->config_group);
-        } else {
-            $code = $this->getDefaultGroup();
+
+        /*
+        Normally, customisation details are taken directly from RA Tools (logo) and RA Mailman (everything else)
+
+        However, if multiple groups are being served by the same website, customisation details are taken
+        from the organisation table instead. Note that if values are not present in the table,
+        the component configuration serves as the default.         
+        */
+        // See if we are running "full version" {single group:) or
+        // if there are multiple groups
+
+        $params = ComponentHelper::getParams('com_ra_mailman');
+        $full_version = $params->get('full_version', 'N');
+        if ($full_version == 'Y') {
+            return $setup;
         }
 
-        if (!empty($code) && $code !== 'N') {
-            $sql = 'SELECT code, name, website, email_header, logo, logo_align, colour_header, colour_body, colour_footer ';
-            $sql .= 'FROM #__ra_organisations ';
-            $sql .= 'WHERE code=' . $this->db->quote($code);
-            $item = $this->toolsHelper->getItem($sql);
+        // using the group code from the mailing list, get details from the Organisations table
+        $sql = 'SELECT code, name, website, email_header, colour_header, colour_body, colour_footer, ';
+        $sql .= 'logo, logo_align ';
+        // Logo height and width should be added to the Organisation table
+        // $sql .= 'logo, logo_align, height, width ';
+        $sql .= 'FROM #__ra_organisations ';
+        $sql .= 'WHERE code=' . $this->db->quote($code);
+        $item = $this->toolsHelper->getItem($sql);
 
-            if (is_null($item)) {
-                if ($this->batch_mode) {
-                    $message = 'Email setup not found for code ' . $code . ' - using component defaults';
-                    $this->messages[] = $message;
-                } else {
-                    Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
-                }
+        if (is_null($item)) {
+            if ($this->batch_mode) {
+                $message = 'Email setup not found for code ' . $code . ' - using component defaults';
+                $this->messages[] = $message;
+                return $setup;
+            } else {
+                Factory::getApplication()->enqueueMessage('Email setup not found for code ' . $code, 'error');
                 return false;
             }
+        }
 
-            $setup->setup_source = 'Organisation table';
-            $setup->setup_code = $item->code;
-            if (!empty($item->website)) {
-                $setup->website = $item->website;
-            }
-            if (!empty($item->email_header)) {
-                $setup->email_header = $item->email_header;
-            }
-            if (!empty($item->logo)) {
-                $setup->logo_file = $item->logo;
-            }
-            if (!empty($item->logo_align)) {
-                $setup->logo_align = $item->logo_align;
-            }
-            if (!empty($item->colour_header)) {
-                $setup->colour_header = $item->colour_header;
-            }
-            if (!empty($item->colour_body)) {
-                $setup->colour_body = $item->colour_body;
-            }
-            if (!empty($item->colour_footer)) {
-                $setup->colour_footer = $item->colour_footer;
-            }
+        $setup->setup_source = 'Organisation table';
+        $setup->setup_code = $item->code;
+        // website is deliberately NOT overridden from the organisation record here -
+        // mailshot links (event invitations, un-subscribe) must always point back to
+        // the site actually sending the email, regardless of which group's list the
+        // mailshot belongs to. Only the group's own branding (logo/colours/header
+        // text) is per-group; the domain is always this installation's own.
+        if (!empty($item->email_header)) {
+            $setup->email_header = $item->email_header;
+        }
+        if (!empty($item->logo)) {
+            $setup->logo_file = $item->logo;
+        }
+        if (!empty($item->logo_align)) {
+            $setup->logo_align = $item->logo_align;
+        }
+//        if (!empty($item->height)) {
+//            $setup->height = $item->height;
+//        }
+//        if (!empty($item->width)) {
+//            $setup->width = $item->width;
+//        }
+        if (!empty($item->colour_body)) {
+            $setup->colour_body = $item->colour_body;
+        }
+        if (!empty($item->colour_header)) {
+            $setup->colour_header = $item->colour_header;
+        }
+        if (!empty($item->colour_body)) {
+            $setup->colour_body = $item->colour_body;
+        }
+        if (!empty($item->colour_footer)) {
+            $setup->colour_footer = $item->colour_footer;
         }
 
         return $setup;
@@ -651,6 +717,10 @@ class Mailhelper {
         }
 
         $logo_file = trim($logo_file);
+        // Joomla's media field type stores extra metadata after a '#' (e.g.
+        // "#joomlaImage://local-images/...?width=...&height=...") - strip it to get
+        // the real relative file path.
+        $logo_file = strtok($logo_file, '#');
 
         if (strpos($logo_file, '/images/') === 0) {
             return $logo_file;
@@ -661,6 +731,89 @@ class Mailhelper {
         }
 
         return '/images/com_ra_mailman/' . ltrim($logo_file, '/');
+    }
+
+    private function encodeImageAsDataUri($path) {
+        $mime = @getimagesize($path)['mime'] ?? null;
+        if (!$mime) {
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $mime = ['png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'][$ext] ?? 'image/jpeg';
+        }
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+    }
+
+    private function resizeAndEncodeImageAsDataUri($path, $targetWidth, $targetHeight) {
+        // Some mail clients render inline base64 images at their real pixel size and
+        // ignore both CSS and HTML width/height attributes entirely (confirmed with
+        // Spark Mail on a large logo file) - resizing the actual image data before
+        // encoding makes the configured size stick everywhere, not just clients that
+        // honour sizing hints.
+        $targetWidth = max(1, (int) $targetWidth);
+        $targetHeight = max(1, (int) $targetHeight);
+
+        if (!function_exists('imagecreatetruecolor')) {
+            return $this->encodeImageAsDataUri($path);
+        }
+
+        $info = @getimagesize($path);
+        if ($info === false) {
+            return $this->encodeImageAsDataUri($path);
+        }
+        [$sourceWidth, $sourceHeight, $type] = $info;
+
+        $source = null;
+        switch ($type) {
+            case IMAGETYPE_JPEG:
+                $source = @imagecreatefromjpeg($path);
+                break;
+            case IMAGETYPE_PNG:
+                $source = @imagecreatefrompng($path);
+                break;
+            case IMAGETYPE_GIF:
+                $source = @imagecreatefromgif($path);
+                break;
+            case IMAGETYPE_WEBP:
+                if (function_exists('imagecreatefromwebp')) {
+                    $source = @imagecreatefromwebp($path);
+                }
+                break;
+        }
+        if (!$source) {
+            return $this->encodeImageAsDataUri($path);
+        }
+
+        $resized = imagecreatetruecolor($targetWidth, $targetHeight);
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+        imagecopyresampled($resized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+        imagedestroy($source);
+
+        ob_start();
+        imagepng($resized);
+        $data = ob_get_clean();
+        imagedestroy($resized);
+
+        return 'data:image/png;base64,' . base64_encode($data);
+    }
+
+    private function embedBodyImages($html) {
+        // Images pasted/inserted into the mailshot's rich-text editor are stored as relative
+        // <img src="images/..."> references, which the API mail path (SmtpHelper) cannot resolve
+        // or attach - inline them as base64 so they survive both send paths.
+        return preg_replace_callback('/(<img\b[^>]*\bsrc=)(["\'])([^"\']+)(\2)/i', function ($matches) {
+            $src = trim($matches[3]);
+            if ($src === '' || preg_match('#^(?:data:|https?://|cid:)#i', $src)) {
+                return $matches[0];
+            }
+            // rawurldecode: the editor URL-encodes the src (e.g. spaces as %20), but the
+            // filesystem path needs the decoded filename to match the actual file on disk.
+            $relative = rawurldecode(ltrim((string) parse_url($src, PHP_URL_PATH), '/'));
+            $path = JPATH_ROOT . '/' . $relative;
+            if (strpos($relative, '..') !== false || !file_exists($path)) {
+                return $matches[0];
+            }
+            return $matches[1] . $matches[2] . $this->encodeImageAsDataUri($path) . $matches[4];
+        }, $html);
     }
 
     public function getOwner_id($list_id) {
@@ -723,7 +876,7 @@ class Mailhelper {
 //        echo $sql;
 //        $this->toolsHelper->showSql($sql);
 //        die;
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
         $db->setQuery($sql);
         $db->execute();
@@ -821,7 +974,7 @@ class Mailhelper {
         // returns an object with details of the most recent mailshot for the given list
         $result = new CMSObject;
         $query = $this->db->getQuery(true);
-        $query->select('mail_list_id,id, date_sent,processing_started,attachment');
+        $query->select('mail_list_id,id, date_sent,processing_started,send_after,is_scheduled,attachment');
         $query->from($this->db->qn('#__ra_mail_shots'));
         $query->where('mail_list_id=' . $list_id);
         $query->order('id DESC');
@@ -835,6 +988,8 @@ class Mailhelper {
             $result->set('id', 0);
             $result->set('date_sent', NULL);
             $result->set('processing_started', NULL);
+            $result->set('send_after', NULL);
+            $result->set('is_scheduled', 0);
             $result->set('date', '');
             $result->set('attachment', '');
         } else {
@@ -843,6 +998,8 @@ class Mailhelper {
             $result->set('id', $item->id);
             $result->set('date_sent', $item->date_sent);
             $result->set('processing_started', $item->processing_started);
+            $result->set('send_after', $item->send_after);
+            $result->set('is_scheduled', (int) $item->is_scheduled);
             if (is_null($item->date_sent)) {
                 if (is_null($item->processing_started)) {
                     // Mailshot is present, but not yet sent
@@ -964,43 +1121,101 @@ class Mailhelper {
         $sql .= 'WHERE id=' . $subscription_id;
         $item = $this->toolsHelper->getItem($sql);
         if ($item->state == 0) {
-            $this->subscribe($item->list_id, $item->user_id, $item->record_type, 2);
+            $this->subscribe($item->list_id, $item->user_id, $item->record_type, 2, true);
         } else {
             $this->unsubscribe($item->list_id, $item->user_id, 2);
         }
     }
 
     public function send($mailshot_id, $total) {
-        // See if processing can be done on-line
+        // Every send is queued and delayed by SEND_DELAY_MINUTES, whatever the list size,
+        // so the sender has a real window to cancel a mistaken send before anything goes out.
         $this->messages = [];
 
-        $params = ComponentHelper::getParams('com_ra_mailman');
-        $max_emails = $params->get('max_emails', 120);
-        $max_online_send = $params->get('max_online_send', 10);
-        if ($total > $max_online_send) {
-//            Find the list id
-            $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
-            $sql .= 'WHERE ms.id=' . $mailshot_id;
-            $mail_list_id = $this->toolsHelper->getValue($sql);
-            $this->updateOutstanding($mail_list_id, $total);
-            return;
-//               $mailshot_send_message = $params->get('mailshot_send_message', 'Processing for batch job initiated');
-//               Factory::getApplication()->enqueueMessage($mailshot_send_message, 'info');
-        }
-        $this->sendEmails($mailshot_id);
+        // Find the list id
+        $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
+        $sql .= 'WHERE ms.id=' . $mailshot_id;
+        $mail_list_id = $this->toolsHelper->getValue($sql);
 
-        foreach (($this->messages ?? []) as $message) {
-            Factory::getApplication()->enqueueMessage($message, 'info');
-        }
-        if (JDEBUG) {
-            $message = 'After helper sendEmails ' . count($this->messages) . ' messages';
-            $this->toolsHelper->createLog('RA Mailman', '20', $mailshot_id, $message);
-        }
+        $sql = 'UPDATE #__ra_mail_shots SET send_after=DATE_ADD(NOW(), INTERVAL ' . self::SEND_DELAY_MINUTES . ' MINUTE), is_scheduled=0, cancelled=0 ';
+        $sql .= 'WHERE id=' . $mailshot_id;
+        $this->toolsHelper->executeCommand($sql);
+
+        $this->updateOutstanding($mail_list_id, $total);
+
+        $mailshot_send_message = ComponentHelper::getParams('com_ra_mailman')->get('mailshot_send_message', 'Send queued - will go out in ' . self::SEND_DELAY_MINUTES . ' minutes unless cancelled');
+        Factory::getApplication()->enqueueMessage($mailshot_send_message, 'info');
     }
 
-    public function sendDraft($mailshot_id) {
+    /**
+     * Queue a mailshot to go out at a specific future date/time chosen by the user,
+     * instead of the default SEND_DELAY_MINUTES-from-now used by send().
+     *
+     * $send_at is a "Y-m-d H:i" / "Y-m-d\TH:i" (datetime-local input) string, interpreted
+     * as-is by MySQL - it is never passed through PHP date handling, to avoid the same
+     * timezone mismatch that affected the send_after comparison in sendEmails().
+     */
+    public function scheduleSend($mailshot_id, $total, $send_at) {
+        $this->messages = [];
+
+        $normalised = str_replace('T', ' ', trim((string) $send_at));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $normalised)) {
+            Factory::getApplication()->enqueueMessage('Please choose a valid date and time to schedule the send', 'error');
+            return false;
+        }
+
+        // Compared in SQL (against the DB's own NOW()) rather than PHP, to avoid the same
+        // timezone mismatch that affected the send_after gate in sendEmails().
+        $sql = 'SELECT (' . $this->db->quote($normalised) . ' > NOW())';
+        if (!$this->toolsHelper->getValue($sql)) {
+            Factory::getApplication()->enqueueMessage('Please choose a future date and time to schedule the send', 'error');
+            return false;
+        }
+
+        // Find the list id
+        $sql = 'SELECT ms.mail_list_id FROM #__ra_mail_shots AS ms ';
+        $sql .= 'WHERE ms.id=' . (int) $mailshot_id;
+        $mail_list_id = $this->toolsHelper->getValue($sql);
+
+        $sql = 'UPDATE #__ra_mail_shots SET send_after=' . $this->db->quote($normalised) . ', is_scheduled=1, cancelled=0 ';
+        $sql .= 'WHERE id=' . (int) $mailshot_id;
+        $this->toolsHelper->executeCommand($sql);
+
+        $this->updateOutstanding($mail_list_id, $total);
+
+        Factory::getApplication()->enqueueMessage('Mailshot scheduled to send at ' . $normalised, 'info');
+        return true;
+    }
+
+    public function sendDraft($mailshot_id, $selfOnly = false) {
 
         $user = Factory::getApplication()->getSession()->get('user');
+
+        $this->messages = $this->messages ?? [];
+        $this->attachments = [];
+
+//      Find the email address of the list's owner, the event_id (if any), and the list's
+//      own group_code - needed before getEmailSetup() so the branding (logo/colours/
+//      header) used matches the mailshot's actual list rather than whichever group the
+//      current admin's own profile happens to default to.
+        $sql = 'SELECT contact.email AS reply_to, ms.event_id, l.group_code, u.email FROM #__ra_mail_shots AS ms ';
+        $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
+        $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'LEFT JOIN #__users AS contact ON contact.id = ms.contact_id ';
+        $sql .= 'WHERE ms.id=' . $mailshot_id;
+        $item = $this->toolsHelper->getItem($sql);
+        if (empty($item) || !isset($item->email)) {
+            $this->messages[] = 'Unable to load mailshot ' . $mailshot_id . ' for draft send';
+            return false;
+        }
+        $owner_email = $item->email;
+
+        // getEmailSetup() only resolves the mailshot's own list-specific organisation
+        // branding when batch_mode is set - otherwise it falls back to the current
+        // admin's own default group, unrelated to which list this mailshot belongs to.
+        $this->batch_mode = true;
+        $this->config_group = $item->group_code;
+
         $setup = $this->getEmailSetup();
         if ($setup === false) {
             $this->messages[] = 'Email setup not found';
@@ -1009,50 +1224,41 @@ class Mailhelper {
         // Find the reference point for the un-subscribe link
         $website_base = rtrim($setup->website, '/') . '/';
 
-        $this->messages = $this->messages ?? [];
-        $this->attachments = [];
         // Compile the final message from its components
         $mailshot_body = $this->buildMessage($mailshot_id);
         if ($mailshot_body === false) {
+            $this->messages[] = $this->message ?? 'Unable to build mailshot body';
             return false;
         }
         if ($item->event_id > 0) {
-            $message .= 'Event ' . $item->event_id . '<br>';
-//           $message .= $this->generateInvitation($website_base, $item->event_id, $user->id);
+            $mailshot_body .= $this->generateInvitation($item->event_id, $user->id);
         }
 //      Find the email address of the current user
         $user_email = $user->email;
-        $recipient = $user_email;
-        $message = 'Draft email sent to ';
 
-//      Find the email address of the list's owner
-        $sql = 'SELECT ms.reply_to, u.email FROM #__ra_mail_shots AS ms ';
-        $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
-        $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
-        $sql .= 'WHERE ms.id=' . $mailshot_id;
-        $item = $this->toolsHelper->getItem($sql);
-        $owner_email = $item->email;
         $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
         $title = 'DRAFT MESSAGE: ' . $this->email_title;
-        if (count($this->attachments) == 0) {
-            $message .= '(no attachment) ';
-        } else {
-            $message .= '(' . count($this->attachments) . ' attachment(s)) ';
-        }
+        $attachmentNote = (count($this->attachments) == 0) ? '(no attachment)' : ('(' . count($this->attachments) . ' attachment(s))');
+
+        // buildMessage() deliberately excludes the footer (list footer + system_footer
+        // text) - sendEmails() appends it per-recipient along with a personalised
+        // un-subscribe link. A draft send has no real subscriber/token to build that
+        // link for, so the footer text is shown without it.
+        $full_message = $mailshot_body . '</div>' . $this->footer . '</div></body></html>';
 
         $count = 0;
         // Send message to the editor of the message
-        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
-            $message .= ', editor ' . $recipient . ', reply to ' . $reply_to;
+        if ($this->toolsHelper->sendEmail($user_email, $reply_to, $title, $full_message, $this->attachments)) {
+            $message = 'Draft email sent to ' . $user_email . ' ' . $attachmentNote . ', reply to ' . $reply_to;
             $count++;
         } else {
             $this->message = ' Unable to send Draft "' . $this->email_title . '" to ' . $user_email . ' ';
+            $this->messages[] = $this->message;
             return 0;
         }
-//        die('user email ' . $user_email . '<br>' . $this->message);
 //      If current user not the list owner, send another copy to the owner, reply_to = author
-        if ($user_email !== $owner_email) {
-            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $mailshot_body . '</div></body></html>', $this->attachments)) {
+        if (!$selfOnly && $user_email !== $owner_email) {
+            if ($this->toolsHelper->sendEmail($owner_email, $reply_to, $title, $full_message, $this->attachments)) {
                 $message .= ', also sent to the owner at ' . $owner_email;
                 $count++;
             } else {
@@ -1069,7 +1275,7 @@ class Mailhelper {
         return true;
     }
 
-    public function sendEmails($mailshot_id) { // before version 4.5.1, this was function send
+    public function sendEmails($mailshot_id, $force = false) { // before version 4.5.1, this was function send
 //    This bypasses the check for on-line maximum and is only invoked from send()
 //    if the total number of emails to be sent is less than the on-line maximum
 //
@@ -1078,13 +1284,31 @@ class Mailhelper {
         $this->attachments = [];
 
 //     Get details of the mailshot, the list and the email address of the list's owner
+//     still_queued is evaluated in SQL (against the DB's own NOW()) rather than in PHP,
+//     since send_after is written using MySQL's NOW() and comparing it via Factory::getDate()
+//     in PHP silently applies a timezone conversion, causing a spurious delay of the server's UTC offset.
         $sql = 'SELECT l.id, l.group_code, u.email, ';
-        $sql .= 'ms.processing_started, ms.date_sent, ms.title, ms.event_id, ms.reply_to ';
+        $sql .= 'ms.processing_started, ms.send_after, ms.date_sent, ms.title, ms.event_id, contact.email AS reply_to, ';
+        $sql .= '(ms.send_after IS NOT NULL AND ms.send_after > NOW()) AS still_queued ';
         $sql .= 'FROM #__ra_mail_shots AS ms ';
         $sql .= 'INNER JOIN `#__ra_mail_lists` AS l ON l.id = ms.mail_list_id ';
         $sql .= 'INNER JOIN #__users AS u ON u.id = l.owner_id ';
+        $sql .= 'LEFT JOIN #__users AS contact ON contact.id = ms.contact_id ';
         $sql .= 'WHERE ms.id=' . $mailshot_id;
         $item = $this->toolsHelper->getItem($sql);
+        if (empty($item) || !isset($item->id)) {
+            // A broken/missing column here previously failed silently (getItem() catches the DB
+            // exception and returns false) - every property read then yielded null, so every guard
+            // below (still_queued, date_sent, processing_started) evaluated as "fresh mailshot" and
+            // the whole subscriber list was resent from scratch on every invocation.
+            $message = 'MailHelper::sendEmails: Mailshot lookup failed for id=' . $mailshot_id . ' (' . $this->toolsHelper->error . '); send aborted';
+            $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
+            $this->messages[] = $message;
+            $message = 'sql=' . $sql;
+            $this->toolsHelper->createLog('RA Mailman', '10', $mailshot_id, $message);
+            $this->messages[] = $message;
+            return false;
+        }
         $message = 'Processing_started=' . $item->processing_started . ', group=' . $item->group_code . ', owner email=' . $item->email;
         if (is_null($item->date_sent)) {
             $message .= ', date_sent is null';
@@ -1095,12 +1319,38 @@ class Mailhelper {
         $mail_list_id = $item->id;
         $reply_to = (is_null($item->reply_to) || $item->reply_to == '') ? $item->email : $item->reply_to;
 
+        if (!$force && $item->still_queued) {
+            $message = 'Mailshot "' . $item->title . '" is queued until ' . $item->send_after . '; send skipped for now';
+            $this->messages[] = $message;
+            return false;
+        }
+
         if ($this->hasMailshotDate($item->date_sent)) {
             $this->messages[] = 'Mailshot "' . $item->title . '" is closed and cannot be restarted (' . $item->date_sent . ')';
             $this->updateOutstanding($mail_list_id, 0);
             return 0;
         }
-        if (!is_null($item->processing_started)) {
+        // Claim the "first send" slot atomically - if two invocations (e.g. an overlapping
+        // cron run and a manual send, or two cron runs racing a slow SMTP batch) both read
+        // processing_started as NULL, only one UPDATE...WHERE processing_started IS NULL can
+        // affect a row. The loser falls through to the restart branch below instead of also
+        // sending to every subscriber.
+        $claimed = false;
+        if (is_null($item->processing_started)) {
+            $sql = 'UPDATE #__ra_mail_shots SET processing_started=' . $this->db->quote(Factory::getDate()->toSql());
+            $sql .= ' WHERE id=' . (int) $mailshot_id . ' AND processing_started IS NULL';
+            $this->db->setQuery($sql);
+            $this->db->execute();
+            $claimed = $this->db->getAffectedRows() > 0;
+            if (!$claimed) {
+                // Someone else claimed it a moment ago - re-read so the guards below see it.
+                $item->processing_started = $this->toolsHelper->getValue(
+                        'SELECT processing_started FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id
+                );
+            }
+        }
+
+        if (!$claimed && !is_null($item->processing_started)) {
             $processing_started = Factory::getDate($item->processing_started)->toUnix();
             $elapsed = time() - $processing_started;
 
@@ -1198,6 +1448,13 @@ class Mailhelper {
         $current_email = '';
         foreach ($subscribers as $subscriber) {
             try {
+//                $attempt_count++;
+//                $this->toolsHelper->createLog(
+//                        'RA Mailman',
+//                        '13',
+//                        $mailshot_id,
+//                        'Processing ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email//
+//                );
                 if ($this->isMailshotCancelled($mailshot_id)) {
                     $message = 'Mailshot "' . $item->title . '" was cancelled while dispatch was in progress. Sending stopped.';
                     $this->toolsHelper->createLog('RA Mailman', '27', $mailshot_id, $message);
@@ -1205,7 +1462,6 @@ class Mailhelper {
                     return false;
                 }
 
-                $attempt_count++;
                 // Check not already sent an email to this subscriber
                 if ($subscriber->email == $current_email) {
                     $message = 'Duplicate message suppressed for ' . $subscriber->email;
@@ -1217,29 +1473,45 @@ class Mailhelper {
                 $message = $mailshot_body;
                 $message .= '</div>';
                 if ($item->event_id > 0) {
+//                     $this->toolsHelper->createLog(
+//                            'RA Mailman', '14', $mailshot_id,
+//                            'Generating invitation to ' . $item->event_id . ' for user ' . $subscriber->user_id
+//                    );
                     $message .= '<div style="background: ' . $setup->colour_body;
                     $message .= '; padding-top: 10px; ">';
-                    $message .= $this->bookingHelper->generateInvitation($website_base, $item->event_id, $subscriber->user_id);
+                    $message .= $this->bookingHelper->generateInvitation($item->event_id, $subscriber->user_id);
                     $message .= '</div>';
                 }
 
                 $current_email = $subscriber->email;
+//                $this->toolsHelper->createLog(
+//                        'RA Mailman',
+//                        '15',
+//                        $mailshot_id,
+//                        'Encoding ' . $subscriber->subscription_id . ' for event ' . $item->event_id
+//                );
                 $token = $this->encode($subscriber->subscription_id, 0);
 
                 $link = $this->toolsHelper->buildLink($website_base . 'index.php?option=com_ra_mailman&task=mail_lst.processEmail&token=' . $token, 'Un-subscribe');
                 $message .= $this->footer . $link . '</div>';
                 $message .= '</body></html>';
 
-                $this->toolsHelper->createLog(
-                        'RA Mailman',
-                        '14',
-                        $mailshot_id,
-                        'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
-                );
+//                $this->toolsHelper->createLog(
+//                        'RA Mailman',
+//                        '15',
+//                        $mailshot_id,
+//                        'Attempt ' . $attempt_count . ' of ' . $count_subscribers . ' sending to ' . $subscriber->email
+//                );
 
                 if (!$this->toolsHelper->sendEmail($subscriber->email, $reply_to, $this->email_title, $message, $this->attachments)) {
                     $error_count++;
                     $this->toolsHelper->createLog('RA Mailman', '14', $mailshot_id, 'sendEmail returned false for ' . $subscriber->email);
+                    foreach ($this->toolsHelper->getMessages() as $smtpMessage) {
+                        $this->messages[] = $smtpMessage;
+                    }
+                    if (empty($this->toolsHelper->getMessages())) {
+                        $this->messages[] = 'Failed to send email to ' . $subscriber->email . '; no recipient record was created.';
+                    }
                     continue;
                 }
 
@@ -1257,7 +1529,7 @@ class Mailhelper {
                 if ($outstanding % 10 == 0 || $outstanding == 0) {
                     $this->updateOutstanding($mail_list_id, $outstanding);
                 }
-                $this->toolsHelper->createLog('RA Mailman', '16', $mailshot_id, 'Recipient recorded for ' . $subscriber->email . ', outstanding=' . $outstanding);
+     //           $this->toolsHelper->createLog('RA Mailman', '16', $mailshot_id, 'Recipient recorded for ' . $subscriber->email . ', outstanding=' . $outstanding);
 
                 if ($sent_count >= $max_emails) {
                     $this->toolsHelper->createLog('RA Mailman', '17', $mailshot_id, 'Dispatch paused after reaching max_emails=' . $max_emails);
@@ -1273,6 +1545,7 @@ class Mailhelper {
         // We have processed the batch of emails, so update the outstanding count, and update the date_sent
         if ($error_count > 0) {
             $this->message .= ' ' . $error_count . ' Errors';
+            $this->messages[] = 'Dispatch ended with ' . $error_count . ' failed sends; batch job returned false.';
         }
         $this->updateOutstanding($mail_list_id, $outstanding);
         $this->toolsHelper->createLog('RA Mailman', '18', $mailshot_id, 'Dispatch loop finished: sent=' . $sent_count . ', errors=' . $error_count . ', outstanding=' . $outstanding);
@@ -1287,7 +1560,7 @@ class Mailhelper {
             $this->messages[] = $outstanding . ' messages still outstanding';
         }
 //        die('End of sendEmails, ' . count($this->messages) . ' messages');
-        return true;
+        return $error_count === 0;
     }
 
     public function hasMailshotDate($value) {
@@ -1309,8 +1582,17 @@ class Mailhelper {
     }
 
     private function isMailshotCancelled($mailshot_id) {
-        $sql = 'SELECT date_sent FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id;
-        return $this->hasMailshotDate($this->toolsHelper->getValue($sql));
+        $sql = 'SELECT date_sent, cancelled FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id;
+        $item = $this->toolsHelper->getItem($sql);
+        return $this->hasMailshotDate($item->date_sent) || (bool) $item->cancelled;
+    }
+
+    /**
+     * Permanently delete a mailshot draft. Callers must check authorisation before calling.
+     */
+    public function discardMailshot($mailshot_id) {
+        $sql = 'DELETE FROM #__ra_mail_shots WHERE id=' . (int) $mailshot_id;
+        return $this->toolsHelper->executeCommand($sql);
     }
 
     public function sendRenewal($user_id, $list_id = 0) {
@@ -1435,7 +1717,7 @@ class Mailhelper {
     }
 
     private function storeMessage($mailshot_id, $mailshot_body) {
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $fields = array(
@@ -1464,8 +1746,6 @@ class Mailhelper {
         $toolsHelper = new ToolsHelper;
 //        $wa = Factory::getApplication()->getDocument()->getWebAssetManager();
 //        $wa->registerAndUseStyle('ramblers', 'com_ra_tools/ramblers.css');
-//        $db = Factory::getDbo();
-//        $query = $db->getQuery(true);
 
         $sql = 'SELECT u.name, u.email, l.name as `list`, l.group_code, ';
         $sql .= 'a.list_id, a.user_id, a.record_type, a.method_id, a.expiry_date, ';
@@ -1530,12 +1810,17 @@ class Mailhelper {
         $objTable->generate_table();
     }
 
-    public function subscribe($list_id, $user_id, $record_type, $method_id) {
+    public function subscribe($list_id, $user_id, $record_type, $method_id, $force = false) {
 // Subscribes the given user to the given list
 // if invoked from the front-end, $user_id will usually be the current user,
 // but from the back-end, or if invoked from view list_select, it could be any user
 //
 // $record_type (from back end) could be 1=Subscription or 2=author
+//
+// $force controls whether a previously cancelled (state=0) or purged (state=-2)
+// subscription can be silently reactivated. Passive imports and ordinary
+// subscribe requests do not reinstate an opted-out subscription. The explicit
+// administrator resubscribe action passes true.
         if (JDEBUG) {
             $message = "Creating subscription for list=" . $list_id . ', user=' . $user_id;
             $message .= ", record_type=" . $record_type . ', method_id=' . $method_id;
@@ -1559,6 +1844,10 @@ class Mailhelper {
         if ($item) {
             if (($item->state == 1) AND ($item->record_type == $record_type)) {
                 $this->message = 'User is already subscribed to ' . $list->name . ' as ' . $item->name;
+                return false;
+            }
+            if (!$force AND (($item->state == 0) OR ($item->state == -2))) {
+                $this->message = 'User previously unsubscribed from ' . $list->name . ' - not re-subscribing automatically';
                 return false;
             }
         }

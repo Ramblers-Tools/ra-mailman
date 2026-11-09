@@ -1,11 +1,6 @@
 <?php
 
 /**
- * @version    4.6.0
- * @package    com_ra_mailman
- * @author     Charlie Bigley <webmaster@bigley.me.uk>
- * @copyright  2023 Charlie Bigley
- * @license    GNU General Public License version 2 or later; see LICENSE.txt
  * 15/06/23 CB use ra_mail_access
  * 20/06/23 CB copy code from 1.1.4
  * 08/04/24 CB showUserList - include access permitted
@@ -19,6 +14,8 @@
  * 16/09/25 CB showSubscribers - sequence by email
  * 16/10/25 CB remove diagnostic display
  * 20/10/25 CB delete Import Reports
+ * 20/10/26 CB always showSubscribers in ascending name order
+ * 23/10/25 CB subscribe - set force true
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -35,6 +32,7 @@ use Joomla\CMS\MVC\Factory\MVCFactoryInterface;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use Joomla\CMS\Uri\Uri;
+use Joomla\Database\DatabaseInterface;
 use Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHtml;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsHelper;
@@ -58,7 +56,7 @@ class Mail_lstController extends FormController {
     public function __construct(array $config = array(), \Joomla\CMS\MVC\Factory\MVCFactoryInterface $factory = null) {
 //        die('Mail_lstController');
         parent::__construct($config, $factory);
-        $this->db = Factory::getDbo();
+        $this->db = Factory::getContainer()->get(DatabaseInterface::class);
         $this->toolsHelper = new ToolsHelper;
         $this->objApp = Factory::getApplication();
         $this->mailHelper = new Mailhelper;
@@ -342,7 +340,7 @@ class Mail_lstController extends FormController {
     public function showAuditAll() {
         $list_id = (int) $this->objApp->input->getCmd('list_id', '');
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
         ToolBarHelper::title('Ramblers MailMan');
 //      Show link that allows page to be printed
@@ -444,7 +442,7 @@ class Mail_lstController extends FormController {
     public function showAuthors() {
         $list_id = (int) $this->objApp->input->getCmd('list_id', '');
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
         ToolBarHelper::title('Ramblers MailMan');
 //      Show link that allows page to be printed
@@ -591,7 +589,7 @@ class Mail_lstController extends FormController {
         $user_id = (int) $this->objApp->input->getCmd('user_id', 0);
         ToolBarHelper::title('Ramblers MailMan');
 
-        $db = Factory::getDbo();
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
         $query = $db->getQuery(true);
 
         $query->select('a.id, a.group_code, a.name, s.created,s.expiry_date, s.reminder_sent');
@@ -741,11 +739,9 @@ class Mail_lstController extends FormController {
         if ($this->toolsHelper->isSuperuser()) {
             $showEmail = true;
             $table_headings = 'User,email,Group,Access,Created,Last Updated,Expires,Reminder,Status,';
-            $sort = ' ORDER BY s.state DESC, u.email';
         } else {
             $showEmail = false;
-            $table_headings = 'User,Group,Access,Created,Last Updated';
-            $sort = ' ORDER BY s.state DESC, u.name';
+            $table_headings = 'User,Group,Access,Created,Last Updated';         
         }
         $sql = "SELECT ";
         $sql .= "u.id, p.preferred_name, u.email, u.requireReset, ";
@@ -766,7 +762,7 @@ class Mail_lstController extends FormController {
             $sql .= ' AND s.record_type=2 ';
         }
         $sql .= 'AND s.list_id=' . $list_id;
-        $sql .= $sort;
+        $sql .=  ' ORDER BY s.state DESC, u.name';
 //        echo $sql;
         $rows = $this->toolsHelper->getRows($sql);
 
@@ -834,8 +830,8 @@ class Mail_lstController extends FormController {
         $record_type = $this->objApp->input->getInt('record_type', '');
         $user_id = $this->objApp->input->getInt('user_id', '');
         $callback = $this->objApp->input->getCmd('callback', 'user_select');
-//        Factory::getApplication()->enqueueMessage("Updating list=$list_id, user=$user_id, record_type=$record_type", 'notice');
-        $this->mailHelper->subscribe($list_id, $user_id, $record_type, 2);
+//      Set Force true 
+        $this->mailHelper->subscribe($list_id, $user_id, $record_type, 2,true);
         Factory::getApplication()->enqueueMessage($this->mailHelper->message, 'notice');
         $target = 'index.php?option=com_ra_mailman&view=' . $callback;
         $target .= '&record_type=' . $record_type . '&list_id=' . $list_id;

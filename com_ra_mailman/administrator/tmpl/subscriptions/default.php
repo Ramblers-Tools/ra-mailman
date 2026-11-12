@@ -36,10 +36,29 @@ if (!empty($saveOrder)) {
     $saveOrderingUrl = 'index.php?option=com_ra_mailman&task=subscriptions.saveOrderAjax&tmpl=component&' . Session::getFormToken() . '=1';
     HTMLHelper::_('draggablelist.draggable');
 }
+ if ($this->activeListId > 0) {
+     $activeListName = htmlspecialchars((string) $this->activeList->name, ENT_QUOTES, 'UTF-8');
+     $activeListCode = htmlspecialchars((string) $this->activeList->group_code, ENT_QUOTES, 'UTF-8');
+     $activeListDescription = $activeListCode . ' ' . $activeListName;
+ }
 ?>
 
 <form action="<?php echo Route::_('index.php?option=com_ra_mailman&view=subscriptions'); ?>" method="post"
       name="adminForm" id="adminForm">
+    <?php if ($this->activeListId > 0) : ?>
+        <div class="alert alert-info d-flex justify-content-between align-items-center" role="status">
+            <span>
+                <?php if ($this->activeList) : ?>
+                    Subscriptions for <strong><?php echo $activeListDescription; ?></strong>
+                <?php else : ?>
+                    The selected mailing list is no longer available.
+                <?php endif; ?>
+            </span>
+            <button type="button" class="btn btn-outline-secondary" data-subscriptions-clear-list>
+                Clear selected list
+            </button>
+        </div>
+    <?php endif; ?>
     <div class="row">
         <div class="col-md-12">
             <div id="j-main-container" class="j-main-container">
@@ -60,7 +79,7 @@ if (!empty($saveOrder)) {
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Group', 'l.group_code', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'List', 'l.name', $listDirn, $listOrder) . '</th>';
 
-                            echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Real name', 'u.name', $listDirn, $listOrder) . '</th>';
+                            echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Subscriber', 'p.preferred_name', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Method', 'm.name', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Access', 'ma.name', $listDirn, $listOrder) . '</th>';
                             echo '<th class="left">' . HTMLHelper::_('searchtools.sort', 'Last updated', 'a.modified', $listDirn, $listOrder) . '</th>';
@@ -103,9 +122,19 @@ if (!empty($saveOrder)) {
                                     echo '<span class="icon-warning"></span>';
                                 }
                                 echo '</td>';
-                                echo '<td>' . $item->subscriber . '</td>';
+                                echo '<td>' . $item->preferred_name . '</td>';
                                 echo '<td>' . $item->Method . '</td>';
-                                echo '<td>' . $item->Access . '</td>';
+                                echo '<td>' . htmlspecialchars((string) $item->Access, ENT_QUOTES, 'UTF-8');
+                                if ($canEdit && (int) $item->record_type === 2) {
+                                    echo ' <button type="button" class="btn btn-sm btn-outline-secondary"'
+                                            . ' data-subscription-access-task="subscription.demote"'
+                                            . ' data-subscription-id="' . (int) $item->id . '">Demote</button>';
+                                } elseif ($canEdit && (int) $item->record_type === 1) {
+                                    echo ' <button type="button" class="btn btn-sm btn-outline-primary"'
+                                            . ' data-subscription-access-task="subscription.premote"'
+                                            . ' data-subscription-id="' . (int) $item->id . '">Promote</button>';
+                                }
+                                echo '</td>';
                                 echo '<td>';
                                 if (($item->modified != '') AND ($item->modified != '0000-00-00 00:00:00')) {
                                     echo $item->modified;
@@ -132,6 +161,7 @@ if (!empty($saveOrder)) {
                 </table>
 
                 <input type="hidden" name="task" value=""/>
+                <input type="hidden" name="id" value="0"/>
                 <input type="hidden" name="boxchecked" value="0"/>
                 <input type="hidden" name="list[fullorder]" value="<?php echo $listOrder; ?> <?php echo $listDirn; ?>"/>
                 <?php echo HTMLHelper::_('form.token'); ?>
@@ -139,3 +169,32 @@ if (!empty($saveOrder)) {
         </div>
     </div>
 </form>
+
+<script>
+document.addEventListener('click', function (event) {
+    var clearButton = event.target.closest('[data-subscriptions-clear-list]');
+    if (clearButton) {
+        var clearForm = document.getElementById('adminForm');
+        if (clearForm) {
+            clearForm.elements.task.value = 'subscription.clearList';
+            clearForm.elements.id.value = '0';
+            clearForm.requestSubmit();
+        }
+        return;
+    }
+
+    var button = event.target.closest('[data-subscription-access-task]');
+    if (!button) {
+        return;
+    }
+
+    var form = document.getElementById('adminForm');
+    if (!form) {
+        return;
+    }
+
+    form.elements.task.value = button.getAttribute('data-subscription-access-task');
+    form.elements.id.value = button.getAttribute('data-subscription-id');
+    form.requestSubmit();
+});
+</script>

@@ -23,12 +23,19 @@ class HtmlView extends BaseHtmlView {
     protected $form;
     protected $filterSearch;
     protected $toolsHelper;
+    protected $activeList;
+    protected $activeListId;
 
     public function display($tpl = null) {
         $this->toolsHelper = new ToolsHelper;
         $this->db =Factory::getContainer()->get('DatabaseDriver');
         $this->form = $this->get('Form');
         $this->filterSearch = $this->get('FilterSearch');
+        $this->activeListId = (int) Factory::getApplication()->getUserState(
+                'com_ra_mailman.subscriptions.active_list_id',
+                0
+        );
+        $this->activeList = $this->get('ActiveList');
 
         if (count($errors = $this->get('Errors'))) {
             throw new \RuntimeException(implode("\n", $errors));

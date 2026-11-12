@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<form>
+<form addfieldprefix="Ramblers\Component\Ra_tools\Site\Field">
     <fieldset>
         <field
             name="user_id"
-            type="user"
+            type="racontact"
             label="User"
             description="Select the user to subscribe."
             required="true"

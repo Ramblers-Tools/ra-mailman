@@ -48,7 +48,6 @@ class SubscriptionsModel extends ListModel {
             $config['filter_fields'] = array(
                 'l.group_code',
                 'l.name',
-                'u.name',
                 'p.preferred_name',
                 'm.name',
                 'a.state',
@@ -77,10 +76,16 @@ class SubscriptionsModel extends ListModel {
      */
     protected function populateState($ordering = null, $direction = null) {
         // List state information.
-        parent::populateState('subscriber', 'ASC');
+        parent::populateState('preferred_name', 'ASC');
 
         $context = $this->getUserStateFromRequest($this->context . '.filter.search', 'filter_search');
         $this->setState('filter.search', $context);
+
+        $activeListId = (int) Factory::getApplication()->getUserState(
+                'com_ra_mailman.subscriptions.active_list_id',
+                0
+        );
+        $this->setState('filter.active_list_id', $activeListId);
 
         // Split context into component and optional section
         if (!empty($context)) {
@@ -110,6 +115,7 @@ class SubscriptionsModel extends ListModel {
         // Compile the store id.
         $id .= ':' . $this->getState('filter.search');
         $id .= ':' . $this->getState('filter.list_id');
+        $id .= ':' . $this->getState('filter.active_list_id');
         $id .= ':' . $this->getState('filter.method_id');
         $id .= ':' . $this->getState('filter.state');
 
@@ -131,7 +137,7 @@ class SubscriptionsModel extends ListModel {
         // Create a new query object.
         $query = $this->_db->getQuery(true);
 
-        $query->select('a.id, a.state, a.ip_address, a.user_id, a.state');
+        $query->select('a.id, a.state, a.ip_address, a.user_id, a.record_type');
         $query->select("CASE WHEN a.state = 0 THEN 'Inactive' ELSE 'Active' END AS 'Status'");
         $query->select('a.method_id, a.created, a.modified,a.expiry_date');
         $query->select('u.name AS `subscriber`, u.requireReset');
@@ -152,6 +158,11 @@ class SubscriptionsModel extends ListModel {
         $list_id = $this->getState('filter.list_id');
         if ($list_id != '') {
             $query->where('l.id = ' . $list_id);
+        }
+
+        $activeListId = (int) $this->getState('filter.active_list_id', 0);
+        if ($activeListId > 0) {
+            $query->where('a.list_id = ' . $activeListId);
         }
 
         // Filter by method
@@ -204,6 +215,22 @@ class SubscriptionsModel extends ListModel {
             Factory::getApplication()->enqueueMessage($this->_db->replacePrefix($query), 'message');
         }
         return $query;
+    }
+
+    public function getActiveList(): ?object {
+        $listId = (int) $this->getState('filter.active_list_id', 0);
+        if ($listId < 1) {
+            return null;
+        }
+
+        $db = $this->getDatabase();
+        $query = $db->getQuery(true)
+                ->select($db->quoteName(['id', 'group_code', 'name']))
+                ->from($db->quoteName('#__ra_mail_lists'))
+                ->where($db->quoteName('id') . ' = ' . $listId);
+        $db->setQuery($query);
+
+        return $db->loadObject() ?: null;
     }
 
     /**

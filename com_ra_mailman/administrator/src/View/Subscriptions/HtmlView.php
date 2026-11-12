@@ -5,6 +5,7 @@
  * 25/08/25 CB Help
  * 05/11/26 CB Delete references to SidebarHelper for J6 compatibility
  * 08/11/26 CB hide main menu for toolbar view
+ * 11/11/26 CB Implement persistence of a given list, Promote and demote subscription access levels
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\View\Subscriptions;
@@ -33,6 +34,8 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
     protected $pagination;
     protected $state;
     protected $user;
+    protected $activeList;
+    protected $activeListId;
 
     /**
      * Display the view
@@ -54,6 +57,8 @@ class HtmlView extends BaseHtmlView implements CurrentUserInterface {
         $this->filterForm = $this->get('FilterForm');
         $this->activeFilters = $this->get('ActiveFilters');
         $this->user = $this->getCurrentUser();
+        $this->activeListId = (int) $this->state->get('filter.active_list_id', 0);
+        $this->activeList = $this->get('ActiveList');
         // Check for errors.
         if (count($errors = $this->get('Errors'))) {
             throw new \Exception(implode("\n", $errors));

@@ -159,6 +159,10 @@
                label="Email details" 
                description="Details of 'From': Name,email address"
                hint="MailMan,webmaster@....."/>
+        <field name="note1" 
+            type="note" 
+            label="Housekeeping"
+        />      
         <field name="notify_interval" 
                first="7" last="35" 
                step="2" 
@@ -167,6 +171,14 @@
                label="Notify interval (days)" 
                description="How long in advace a reminder should be sent" 
                hint="28"/>
+        <field name="retain_recipients" 
+               first="24" last="104" 
+               step="4" 
+               type="integer" 
+               default="52" 
+               label="Retain recipients (weeks)" 
+               description="How long to retain details of recipient information" 
+               hint="52"/>                                
     </fieldset> 
     <fieldset name="permissions" description="JCONFIG_PERMISSIONS_DESC" label="JCONFIG_PERMISSIONS_LABEL">
         <field name="rules" 

@@ -10,6 +10,7 @@
  * 06/01/24 CB cancelSubscription
  * 17/11/24 CB showDetails
  * 04/11/26 CB remove obsolete getDbo reference
+ * 11/11/26 CB Implement persistence of a given list, Promote and demote subscription access levels
  */
 
 namespace Ramblers\Component\Ra_mailman\Administrator\Controller;
@@ -23,6 +24,7 @@ use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\Toolbar\ToolbarHelper;
+use Joomla\Database\DatabaseInterface;
 use \Ramblers\Component\Ra_mailman\Site\Helpers\Mailhelper;
 use Ramblers\Component\Ra_mailman\Site\Helpers\SubscriptionHelper;
 use Ramblers\Component\Ra_tools\Site\Helpers\ToolsTable;
@@ -70,6 +72,152 @@ class SubscriptionController extends FormController {
         $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
     }
 
+    public function cancel($key = null, $urlVar = null): void {
+        $this->app->setUserState('com_ra_mailman.edit.subscription.data', null);
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+    }
+
+    public function cancelSubscription() {
+        $id = $this->app->input->getInt('id', '1');
+        $objSubscription = new SubscriptionHelper;
+        if ($objSubscription->cancelSubscription($id)) {
+            $this->app->enqueueMessage($objSubscription->message, 'info');
+        }
+        $this->setRedirect('/administrator/index.php?option=com_ra_mailman&view=subscriptions');
+    }
+
+    private function changeAccess(int $expectedType, int $newType): void {
+        $this->checkToken('post');
+
+        if (!ContentHelper::getActions('com_ra_mailman')->get('core.edit')) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        $id = $this->input->post->getInt('id', 0);
+        $helper = new ToolsHelper;
+        $row = $id > 0
+                ? $helper->getItem(
+                        'SELECT id, list_id, user_id, record_type FROM #__ra_mail_subscriptions WHERE id = ' . $id
+                )
+                : null;
+
+        if (!$row || (int) $row->record_type !== $expectedType) {
+            $this->app->enqueueMessage('The subscription access level has changed or the record was not found.', 'warning');
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+
+            return;
+        }
+
+        $subscription = new SubscriptionHelper;
+        // Preserve the exact subscription row selected by the Access button.
+        $subscription->id = (int) $row->id;
+        $subscription->list_id = (int) $row->list_id;
+        $subscription->user_id = (int) $row->user_id;
+
+        if (!$subscription->getData()) {
+            $this->app->enqueueMessage($subscription->message, 'error');
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+
+            return;
+        }
+
+        $subscription->record_type = $newType;
+
+        if ($subscription->update()) {
+            $label = $newType === 2 ? 'Author' : 'Subscriber';
+            $this->app->enqueueMessage('Subscription access changed to ' . $label . '.', 'message');
+        } else {
+            $this->app->enqueueMessage($subscription->message ?: 'Unable to update subscription access.', 'error');
+        }
+
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+    }
+
+    public function demote(): void {
+        $this->changeAccess(2, 1);
+    }
+
+    private function isValidRaContactSelection(int $userId, string $expectedGroupCode = ''): bool {
+        $selections = $this->input->post->get('ra_contact', [], 'array');
+        $secret = (string) Factory::getConfig()->get('secret', '');
+        if ($secret === '' || !is_array($selections)) {
+            return false;
+        }
+
+        $db = Factory::getContainer()->get(DatabaseInterface::class);
+        $currentUserId = (int) $this->app->getIdentity()->id;
+
+        foreach ($selections as $fieldId => $selection) {
+            if (!is_array($selection)) {
+                continue;
+            }
+
+            $fieldId = (string) $fieldId;
+            $groupCode = strtoupper(trim((string) ($selection['group_code'] ?? '')));
+            $signature = (string) ($selection['signature'] ?? '');
+            if (preg_match('/^[A-Za-z][A-Za-z0-9_-]*$/', $fieldId) !== 1
+                    || preg_match('/^[A-Z0-9]{2,4}$/', $groupCode) !== 1
+                    || preg_match('/^[a-f0-9]{64}$/i', $signature) !== 1) {
+                continue;
+            }
+
+            if ($expectedGroupCode !== '' && $groupCode !== strtoupper($expectedGroupCode)) {
+                continue;
+            }
+
+            $expected = hash_hmac('sha256', $groupCode . '|' . $fieldId . '|' . $currentUserId, $secret);
+            if (!hash_equals($expected, $signature)) {
+                continue;
+            }
+
+            $query = $db->getQuery(true)
+                    ->select('COUNT(*)')
+                    ->from($db->quoteName('#__users', 'u'))
+                    ->innerJoin($db->quoteName('#__ra_profiles', 'p') . ' ON ' . $db->quoteName('p.id') . ' = ' . $db->quoteName('u.id'))
+                    ->innerJoin($db->quoteName('#__ra_groups', 'g') . ' ON ' . $db->quoteName('g.code') . ' = ' . $db->quoteName('p.home_group'))
+                    ->where($db->quoteName('u.id') . ' = ' . $userId)
+                    ->where($db->quoteName('g.code') . ' = ' . $db->quote($groupCode));
+            $db->setQuery($query);
+
+            if ((int) $db->loadResult() > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function premote(): void {
+        $this->changeAccess(1, 2);
+    }
+
+    public function persist(){
+        if (!ContentHelper::getActions('com_ra_mailman')->get('core.edit')) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        $listId = $this->input->getInt('list_id', 0);
+        $list = $listId > 0
+                ? $this->objHelper->getItem('SELECT id FROM #__ra_mail_lists WHERE id = ' . $listId)
+                : null;
+
+        if (!$list) {
+            $this->app->setUserState('com_ra_mailman.subscriptions.active_list_id', 0);
+            $this->app->enqueueMessage('The selected mailing list could not be found.', 'warning');
+        } else {
+            $this->app->setUserState('com_ra_mailman.subscriptions.active_list_id', $listId);
+            $this->app->setUserState('com_ra_mailman.subscriptions.filter.list_id', '');
+        }
+
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+    }
+
+    public function clearList(): void {
+        $this->checkToken('post');
+        $this->app->setUserState('com_ra_mailman.subscriptions.active_list_id', 0);
+        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
+    }
+
     public function save($key = null, $urlVar = null): void {
         $this->checkToken();
 
@@ -97,12 +245,37 @@ class SubscriptionController extends FormController {
             return;
         }
 
+        $activeGroupCode = '';
+        $activeListId = (int) $this->app->getUserState('com_ra_mailman.subscriptions.active_list_id', 0);
+        if ($activeListId > 0) {
+            $activeList = $this->objHelper->getItem(
+                    'SELECT id, group_code FROM #__ra_mail_lists WHERE id = ' . $activeListId
+            );
+            if (!$activeList) {
+                $this->app->enqueueMessage('The selected mailing list ' . $activeListId . ' could not be found.', 'error');
+                $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+
+                return;
+            }
+
+            $data['list_id'] = $activeListId;
+            $activeGroupCode = (string) $activeList->group_code;
+        }
+
         $userId = (int) ($data['user_id'] ?? 0);
         $listId = (int) ($data['list_id'] ?? 0);
         $recordType = (int) ($data['record_type'] ?? 0);
 
         if ($userId < 1 || $listId < 1 || !in_array($recordType, [1, 2], true)) {
             $this->app->enqueueMessage('Please select a user, mailing list, and subscription type.', 'error');
+            $this->app->setUserState('com_ra_mailman.edit.subscription.data', $data);
+            $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
+
+            return;
+        }
+
+        if (!$this->isValidRaContactSelection($userId, $activeGroupCode)) {
+            $this->app->enqueueMessage('Select a user from the configured group.', 'error');
             $this->app->setUserState('com_ra_mailman.edit.subscription.data', $data);
             $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscription&layout=edit', false));
 
@@ -140,20 +313,6 @@ class SubscriptionController extends FormController {
         $this->app->setUserState('com_ra_mailman.edit.subscription.data', null);
         $this->app->enqueueMessage('Subscription created.', 'message');
         $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
-    }
-
-    public function cancel($key = null, $urlVar = null): void {
-        $this->app->setUserState('com_ra_mailman.edit.subscription.data', null);
-        $this->setRedirect(Route::_('index.php?option=com_ra_mailman&view=subscriptions', false));
-    }
-
-    public function cancelSubscription() {
-        $id = $this->app->input->getInt('id', '1');
-        $objSubscription = new SubscriptionHelper;
-        if ($objSubscription->cancelSubscription($id)) {
-            $this->app->enqueueMessage($objSubscription->message, 'info');
-        }
-        $this->setRedirect('/administrator/index.php?option=com_ra_mailman&view=subscriptions');
     }
 
     public function sendRenewal() {

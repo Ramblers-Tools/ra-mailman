@@ -135,31 +135,18 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                             echo '</th>';
 
                             echo '<th>Outstanding</th>';
-                            echo '<th></th>';
-
                             echo '<th class="left">';
                             echo 'Authors';
                             echo '</th>';
-
-                            echo '<th class="left">';
-                            echo 'Subscribers';
-                            echo '</th>';
-
-                            echo '<th class="left">';
-                            echo 'Mailshots';
-                            echo '</th>';
-
-                            if ($canEdit) {
-                                echo '<th class="left">';
-                                echo 'Audit';
-                                echo '</th>';
-                            }
+                            echo '<th class="left">Subscribers</th>';
+                            echo '<th class="left">Mailshots</th>';
+                            echo '<th class="left">Actions</th>';
                             ?>
                         </tr>
                     </thead>
                     <tfoot>
                         <tr>
-                            <td colspan="<?php echo $canEdit ? 14 : 13; ?>">
+                            <td colspan="13">
                                 <?php echo $this->pagination->getListFooter(); ?>
                             </td>
                         </tr>
@@ -177,6 +164,7 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                             $last_mailshot = $this->mailHelper->lastMailshot($item->id); //
 //                            var_dump($last_mailshot);
 //                            echo '<br>';
+
                             // see if the current user is an Author of this list
                             $isAuthor = $this->mailHelper->isAuthor($item->id);
 
@@ -184,6 +172,55 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                             $count_authors = $this->mailHelper->countSubscribers($item->id, 'Y');
                             // Count number of subscribers
                             $count_subscribers = $this->mailHelper->countSubscribers($item->id);
+
+  
+                            $actions = [];
+
+                            $addAction = static function ($url, $label, $confirm = '') use (&$actions) {
+                                $confirmAttribute = $confirm === '' ? '' : ' onclick="return confirm(\'' . htmlspecialchars(addslashes($confirm), ENT_QUOTES, 'UTF-8') . '\');"';
+                                $actions[] = '<a class="dropdown-item" href="/' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"' . $confirmAttribute . '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</a>';
+                            };
+
+                            if ($item->emails_outstanding > 0) {
+                                // Can't edit
+                            } elseif (($item->state == 0) OR (is_null($last_mailshot->date_sent))
+                                    AND (!is_null($last_mailshot->processing_started))) {
+                                // Mailing list is inactive
+                                // or the mailshot is only partly send
+                            } else {
+                                if (($canEdit) OR ($isAuthor)) {
+                                    $target_edit = 'administrator/index.php?option=com_ra_mailman&view=mailshot&layout=edit&list_id=' . $item->id;
+                                    if ((is_null($last_mailshot->date_sent))
+                                            AND ($count > 0)
+                                            AND (is_null($last_mailshot->processing_started))) {
+                                        // Set up the link to Edit
+                                        $target_edit .= '&id=' . $last_mailshot->id;
+                                        $label = 'Edit mailshot';
+                                        $addAction($target_edit, $label);
+                                        $target_cancel = 'administrator/index.php?option=com_ra_mailman&task=mailshot.discard&mailshot_id=' . (int) $last_mailshot->id;
+                                        $addAction($target_cancel, 'Discard', 'Discard this mailshot? All its data will be permanently lost.');         
+                                    } else {
+                                        $target_edit .= '&id=0';
+                                        $label = 'Create mailshot';
+                                        $addAction($target_edit, $label);
+                                    }
+                                }
+                            }
+                            // Collect sending and scheduling actions in the same dropdown.
+                            if (($last_mailshot->id > 0) && is_null($last_mailshot->date_sent) && (($canEdit) || ($isAuthor))) {
+                                if ($last_mailshot->attachment !== '') {
+                                    $addAction('images/com_ra_mailman/' . $last_mailshot->attachment, 'View attachment');
+                                }
+                                if (is_null($last_mailshot->processing_started)) {
+                                    $addAction('administrator/index.php?option=com_ra_mailman&task=mailshot.send&menu_id=' . (int) $this->menu_id . '&mailshot_id=' . (int) $last_mailshot->id . '&total=' . (int) $count_subscribers, 'Send');
+                                    if ($item->emails_outstanding == 0) {
+                                        $actions[] = '<button type="button" class="dropdown-item" onclick="raMailmanOpenSchedule(' . (int) $last_mailshot->id . ', ' . (int) $count_subscribers . ', \'' . rtrim(Uri::root(), '/') . '/administrator/index.php\', \'' . htmlspecialchars(addslashes((string) $last_mailshot->send_after), ENT_QUOTES, 'UTF-8') . '\')">Schedule</button>';
+                                    }
+                                } else {
+                                    $outstanding = (int) $this->mailHelper->countSubscribersOutstanding($last_mailshot->id);
+                                    $addAction('administrator/index.php?option=com_ra_mailman&task=mailshot.send&menu_id=' . (int) $this->menu_id . '&mailshot_id=' . (int) $last_mailshot->id . '&total=' . (int) $count_subscribers, 'Resend to ' . $outstanding);
+                                }
+                            }
                             if ($item->state == 1) {
                                 $name = $this->escape($item->name);
                             } else {
@@ -244,44 +281,21 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                                     }
                                     echo '</td>';
 
-                                    echo '<td>'; // . $item->owner_id;
-                                    if ($item->emails_outstanding == 0) {
-                                        echo $this->sendButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor);
-                                        echo $this->scheduleButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor);
-                                    } else {
-                                        if ($last_mailshot->is_scheduled) {
-                                            echo $this->scheduleButton($last_mailshot, $count_subscribers, $canEdit, $isAuthor, 'Edit schedule');
-                                        }
-                                        echo $this->cancelButton($last_mailshot, $canEdit, $isAuthor);
-                                    }
-                                    echo '</td>';
-
                                     echo '<td>';
                                     $target_info = 'administrator/index.php?option=com_ra_mailman&task=mail_lst.showSubscribers&list_id=' . $item->id;
                                     if ($count_authors > 0) {
-                                        echo $count_authors;
-                                        echo $this->toolsHelper->imageButton('I', $target_info . '&author=Y');
-                                    }
-                                    if (($item->state == 1) AND ($canEdit)) {
-                                        $target = 'administrator/index.php?option=com_ra_mailman&view=user_select&record_type=2&list_id=' . $item->id;
-//                        echo $this->toolsHelper->buildLink($target, 'Select', False, "btn btn-small button-new");
-                                        //             echo '<span class="icon-pencil-2"></span>';
-                                        echo $this->toolsHelper->buildLink($target, 'edit');
+                                        echo $this->toolsHelper->buildLink($target_info . '&author=Y', $count_authors);
+//                                      $addAction('administrator/index.php?option=com_ra_mailman&task=mail_lst.showSubscribers&list_id=' . (int) $item->id . '&author=Y', 'View authors');
                                     }
                                     echo '</td>';
 
                                     echo '<td>';
                                     if ($count_subscribers > 0) {
-                                        echo $count_subscribers;
-                                        echo $this->toolsHelper->imageButton('I', $target_info);
+                                        echo $this->toolsHelper->buildLink($target_info, $count_subscribers);
+//                                        $addAction('administrator/index.php?option=com_ra_mailman&task=mail_lst.showSubscribers&list_id=' . (int) $item->id, 'View subscribers');
                                     }
-                                    if (($item->state == 1) AND ($canEdit)) {
-                                        $target = '/administrator/index.php?option=com_ra_mailman&view=user_select&record_type=1&list_id=' . $item->id;
-//                                    echo '<a href="' . $target . '"><span class="icon-pencil-2"></span></a>';
-                                        //            echo $this->toolsHelper->buildIconlink($target, 'icon-pencil-2');
-                                        echo $this->toolsHelper->buildLink($target, 'edit');
-                                    }
-                                    echo '</td>';
+
+
                                     // Mailshots
                                     echo '<td>';
                                     $count = $this->mailHelper->countMailshots($item->id);
@@ -290,45 +304,29 @@ $canEdit = $this->user->authorise('core.edit', 'com_ra_mailman');
                                         // show a link to browse the mailshots
                                         echo $this->toolsHelper->buildLink($target_info, $count, False);
                                     }
-                                    if ($item->emails_outstanding > 0) {
-                                        // Can't edit
-                                    } elseif (($item->state == 0) OR (is_null($last_mailshot->date_sent))
-                                            AND (!is_null($last_mailshot->processing_started))) {
-                                        // Mailing list is inactive
-                                        // or the mailshot is only partly send
-                                    } else {
-                                        if (($canEdit) OR ($isAuthor)) {
-                                            $target_edit = 'administrator/index.php?option=com_ra_mailman&view=mailshot&layout=edit&list_id=' . $item->id;
-                                            if ((is_null($last_mailshot->date_sent))
-                                                    AND ($count > 0)
-                                                    AND (is_null($last_mailshot->processing_started))) {
-                                                // Set up the link to Edit
-                                                $target_edit .= '&id=' . $last_mailshot->id;
-                                                $label = 'Edit';
-                                                $colour = 'sunrise';
-                                            } else {
-                                                // if (($count == 0) or ($last_mailshot->date_sent > '')) {
-                                                $target_edit .= '&id=0';
-                                                $label = 'New';
-                                                $colour = 'sunset';
-                                                //  }
-                                            }
-                                            echo $this->toolsHelper->buildButton($target_edit, $label, False, $colour);
-                                            if ($label === 'Edit') {
-                                                echo $this->discardButton($last_mailshot);
-                                            }
-                                        }
-                                    }
-
                                     echo '</td>';
-                                    // Audit
-
-                                    if ($canEdit) {
-                                        echo '<td>';
-                                        $target_audit = 'administrator/index.php?option=com_ra_mailman&task=mail_lst.showAuditAll&list_id=' . $item->id;
-                                        echo $this->toolsHelper->buildLink($target_audit, 'Show', False, 'gray');
-                                        echo '</td>';
+                                    // Audit and list management links are included in the Actions dropdown.
+//                                    if ($canEdit) {
+//                                        $target_audit = 'administrator/index.php?option=com_ra_mailman&task=mail_lst.showAuditAll&list_id=' . $item->id;
+//                                        $addAction($target_audit, 'Show audit');
+//                                    }
+                                    if (($item->state == 1) && $canEdit) {
+                                        $addAction('administrator/index.php?option=com_ra_mailman&task=subscription.persist&list_id=' . (int) $item->id, 'Manage Subscriptions');
                                     }
+                                    if ($last_mailshot->is_scheduled && (($canEdit) || ($isAuthor))) {
+                                        $actions[] = '<button type="button" class="dropdown-item" onclick="raMailmanOpenSchedule(' . (int) $last_mailshot->id . ', ' . (int) $count_subscribers . ', \'' . rtrim(Uri::root(), '/') . '/administrator/index.php\', \'' . htmlspecialchars(addslashes((string) $last_mailshot->send_after), ENT_QUOTES, 'UTF-8') . '\')">Edit schedule</button>';
+                                    }
+                                    if ($item->emails_outstanding > 0 && (($canEdit) || ($isAuthor))) {
+                                        $addAction('administrator/index.php?option=com_ra_mailman&task=mailshot.cancelSending&mailshot_id=' . (int) $last_mailshot->id . '&return=mail_lsts', 'Cancel mailshot');
+                                    }
+                                    echo '<td>';
+                                    if ($actions) {
+                                        echo '<div class="dropdown">';
+                                        echo '<button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+                                        echo '<div class="dropdown-menu dropdown-menu-end">' . implode('', $actions) . '</div>';
+                                        echo '</div>';
+                                    }
+                                    echo '</td>';
                                     ?>
 
                             </tr>

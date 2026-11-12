@@ -18,25 +18,32 @@ HTMLHelper::_('bootstrap.tooltip');
     <div class="row">
         <div class="col-md-12">
             <fieldset class="adminform">
-                <?php 
-                
-                
+                <?php
                 $search = $this->filterSearch;
-                if (!empty($search)) {
-                    $sql = 'SELECT * FROM #__ra_mail_lists ';
-                    $sql .= ' WHERE name LIKE ' . $this->db->quote('%' . $search . '%');
-                    $sql .= ' OR group_code LIKE ' . $this->db->quote('%' . $search . '%');
+                $selectedList = $this->activeList;
+                if (!$selectedList && !empty($search)) {
+                    $pattern = '%' . $this->db->escape($search, true) . '%';
+                    $sql = 'SELECT id, group_code, name FROM #__ra_mail_lists WHERE name LIKE ';
+                    $sql .= $this->db->quote($pattern, false);
+                    $sql .= ' OR group_code LIKE ' . $this->db->quote($pattern, false);
                     $rows = $this->toolsHelper->getRows($sql);
-                    if (COUNT($rows) == 1) {
-                        $row = $rows[0];
-                        $this->form->setValue('list_id', null, $row->id);
-                        echo 'Selecting User for list <b>' . htmlspecialchars($row->name, ENT_QUOTES, 'UTF-8') . '</b><br><br>'; 
-                        echo $this->form->renderField('user_id');    
-                    } else {
-                        echo $this->form->renderField('user_id');     
-                        echo $this->form->renderField('list_id');
+                    if (count($rows) === 1) {
+                        $selectedList = $rows[0];
+                        $this->form->setValue('list_id', null, $selectedList->id);
                     }
                 }
+
+                if ($selectedList) {
+                    echo '<p>Selecting user for <strong>'
+                            . htmlspecialchars($selectedList->group_code . ' - ' . $selectedList->name, ENT_QUOTES, 'UTF-8')
+                            . '</strong></p>';
+                }
+                if ($this->activeList) {
+                    echo '<input type="hidden" name="jform[list_id]" value="' . (int) $this->activeList->id . '">';
+                } else {
+                    echo $this->form->renderField('list_id');
+                }
+                echo $this->form->renderField('user_id');
                 echo $this->form->renderField('record_type');
                 ?>
 

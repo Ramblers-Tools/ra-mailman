@@ -271,8 +271,12 @@ class SubscriptionHelper {
         $query->select('state, ip_address');
         $query->select('created, created_by, modified, modified_by,expiry_date, reminder_sent');
         $query->from('`#__ra_mail_subscriptions`');
-        $query->where($db->qn('list_id') . ' = ' . $db->q($this->list_id));
-        $query->where($db->qn('user_id') . ' = ' . $db->q($this->user_id));
+        if ($this->id > 0) {
+            $query->where($db->qn('id') . ' = ' . (int) $this->id);
+        } else {
+            $query->where($db->qn('list_id') . ' = ' . $db->q($this->list_id));
+            $query->where($db->qn('user_id') . ' = ' . $db->q($this->user_id));
+        }
         $db->setQuery($query);
 //        echo $query;
         $row = $db->loadObject();
@@ -352,8 +356,12 @@ class SubscriptionHelper {
 // find existing field values in the database
         $query->select('*');
         $query->from('`#__ra_mail_subscriptions`');
-        $query->where($db->qn('list_id') . ' = ' . $db->q($this->list_id));
-        $query->where($db->qn('user_id') . ' = ' . $db->q($this->user_id));
+        if ($this->id > 0) {
+            $query->where($db->qn('id') . ' = ' . (int) $this->id);
+        } else {
+            $query->where($db->qn('list_id') . ' = ' . $db->q($this->list_id));
+            $query->where($db->qn('user_id') . ' = ' . $db->q($this->user_id));
+        }
         $db->setQuery($query);
         $row = $db->loadObject();
         if (!$row) {

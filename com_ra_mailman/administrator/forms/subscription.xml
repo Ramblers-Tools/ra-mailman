@@ -3,11 +3,13 @@
     <fieldset>
         <field
             name="user_id"
-            type="racontact"
+            type="rauser"
             label="User"
             description="Select the user to subscribe."
             required="true"
-        />
+        >
+            <option value="">Select a user</option>
+        </field>
         <field
             name="list_id"
             type="sql"

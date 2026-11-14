@@ -27,7 +27,7 @@ class Pkg_Ra_mailmanInstallerScript {
     private $minimumJoomlaVersion = '5.6';
     private $minimumPHPVersion = JOOMLA_MINIMUM_PHP;
     private $minimumPackagePHPVersion = '8.3.36';
-    private $minimumToolsVersion = '4.0.14';
+    private $minimumToolsVersion = '4.1.2';
     private $reconfigure_message;
     private $current_version;   
     private $schemaHelper; 

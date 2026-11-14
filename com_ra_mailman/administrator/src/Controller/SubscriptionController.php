@@ -171,12 +171,12 @@ class SubscriptionController extends FormController {
             }
 
             $query = $db->getQuery(true)
-                    ->select('COUNT(*)')
-                    ->from($db->quoteName('#__users', 'u'))
-                    ->innerJoin($db->quoteName('#__ra_profiles', 'p') . ' ON ' . $db->quoteName('p.id') . ' = ' . $db->quoteName('u.id'))
-                    ->innerJoin($db->quoteName('#__ra_groups', 'g') . ' ON ' . $db->quoteName('g.code') . ' = ' . $db->quoteName('p.home_group'))
-                    ->where($db->quoteName('u.id') . ' = ' . $userId)
-                    ->where($db->quoteName('g.code') . ' = ' . $db->quote($groupCode));
+                ->select('COUNT(*)')
+                ->from($db->quoteName('#__users', 'u'))
+                ->innerJoin($db->quoteName('#__ra_profiles', 'p') . ' ON ' . $db->quoteName('p.id') . ' = ' . $db->quoteName('u.id'))
+                ->innerJoin($db->quoteName('#__ra_groups', 'g') . ' ON ' . $db->quoteName('g.code') . ' = ' . $db->quoteName('p.home_group'))
+                ->where($db->quoteName('u.id') . ' = ' . $userId)
+                ->where($db->quoteName('g.code') . ' = ' . $db->quote($groupCode));
             $db->setQuery($query);
 
             if ((int) $db->loadResult() > 0) {
